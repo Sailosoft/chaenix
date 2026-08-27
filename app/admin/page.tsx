@@ -40,11 +40,11 @@ export default async function AdminDashboardPage() {
           </p>
         </article>
 
-        <article className="rounded-3xl border border-amber-100/20 bg-amber-300/10 p-6 backdrop-blur-xl">
-          <p className="text-xs uppercase tracking-[0.18em] text-amber-100 [font-family:var(--font-ui)]">
+        <article className="rounded-3xl border border-sky-100/20 bg-sky-300/10 p-6 backdrop-blur-xl">
+          <p className="text-xs uppercase tracking-[0.18em] text-sky-100 [font-family:var(--font-ui)]">
             Account
           </p>
-          <p className="mt-3 break-all text-sm text-amber-50/90 [font-family:var(--font-ui)]">
+          <p className="mt-3 break-all text-sm text-sky-50/90 [font-family:var(--font-ui)]">
             {session.user?.email}
           </p>
         </article>

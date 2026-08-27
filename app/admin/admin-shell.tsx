@@ -56,11 +56,11 @@ export function AdminShell({ children }: PropsWithChildren) {
 
             <Link href="/admin/home" className="group inline-flex items-center gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-300 via-sky-300 to-blue-300 text-sm font-bold text-slate-900 shadow-[0_10px_28px_-14px_rgba(14,165,233,0.8)] transition-transform duration-300 group-hover:scale-105">
-                VC
+                CA
               </span>
               <div className="leading-tight">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700/80">
-                  Velyx Coffee
+                  Chaeni App
                 </p>
                 <p className="text-lg font-semibold text-slate-900">Admin Control Deck</p>
               </div>
@@ -73,7 +73,7 @@ export function AdminShell({ children }: PropsWithChildren) {
             </span>
             <Link
               href="/auth/signout"
-              className="inline-flex items-center rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+              className="inline-flex items-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100"
             >
               Logout
             </Link>

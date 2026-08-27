@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Velyx Coffee",
-  description: "Admin and operations portal for Velyx Coffee",
+  title: "Chaeni App",
+  description: "Admin and operations portal for Chaeni App",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

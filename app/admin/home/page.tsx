@@ -30,7 +30,7 @@ export default async function AdminHomePage() {
           Admin Home
         </p>
         <h1 className="mt-3 text-4xl text-white [font-family:var(--font-title)]">
-          Welcome to Velyx Control Center
+          Welcome to Chaeni App Control Center
         </h1>
         <p className="mt-4 max-w-2xl text-sm text-slate-100/80 [font-family:var(--font-ui)]">
           Centralized entry point for operational insights, service health, and

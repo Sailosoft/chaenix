@@ -88,7 +88,7 @@ export function SiteHeader() {
         className={`pointer-events-none absolute inset-0 ${
           isAdminRoute
             ? "bg-[radial-gradient(circle_at_10%_10%,#06b6d426_0%,transparent_30%),radial-gradient(circle_at_90%_80%,#fb718526_0%,transparent_32%)]"
-            : "bg-[radial-gradient(circle_at_5%_10%,#fb718522_0%,transparent_28%),radial-gradient(circle_at_95%_100%,#06b6d422_0%,transparent_30%)]"
+            : "bg-[radial-gradient(circle_at_5%_10%,#bae6fd33_0%,transparent_30%),radial-gradient(circle_at_95%_100%,#bfdbfe33_0%,transparent_32%)]"
         }`}
       />
 
@@ -98,10 +98,10 @@ export function SiteHeader() {
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-[0_10px_28px_-14px_rgba(14,165,233,0.8)] transition-transform duration-300 group-hover:scale-105 ${
               isAdminRoute
                 ? "bg-gradient-to-br from-cyan-300 via-sky-300 to-blue-300 text-slate-900"
-                : "bg-gradient-to-br from-amber-300 via-rose-300 to-cyan-300 text-slate-900"
+                : "bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300 text-slate-900"
             }`}
           >
-            VC
+            CA
           </span>
           <div className="leading-tight">
             <p
@@ -109,7 +109,7 @@ export function SiteHeader() {
                 isAdminRoute ? "text-slate-300" : "text-slate-500"
               }`}
             >
-              Velyx Coffee
+              Chaeni App
             </p>
             <p
               className={`text-lg font-semibold ${
@@ -138,7 +138,7 @@ export function SiteHeader() {
                     : isSignOut
                       ? isAdminRoute
                         ? "text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
-                        : "text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        : "text-sky-700 hover:bg-sky-50 hover:text-sky-800"
                       : isAdminRoute
                         ? "text-slate-200 hover:bg-white/10 hover:text-white"
                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
@@ -163,7 +163,7 @@ export function SiteHeader() {
               className={`inline-flex items-center rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                 isAdminRoute
                   ? "border-rose-300/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
-                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                  : "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
               }`}
             >
               Sign out
@@ -204,7 +204,7 @@ export function SiteHeader() {
                   : isSignOut
                     ? isAdminRoute
                       ? "bg-rose-500/15 text-rose-200"
-                      : "bg-rose-50 text-rose-700"
+                      : "bg-sky-50 text-sky-700"
                     : isAdminRoute
                       ? "bg-white/10 text-slate-200"
                       : "bg-slate-100 text-slate-700"
