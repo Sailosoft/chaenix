@@ -17,6 +17,5 @@ export default async function AdminChatPage({
   }
 
   const { id } = await params;
-
   return <ChatUi id={id} initialMessages={[]} />;
 }

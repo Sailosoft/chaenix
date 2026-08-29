@@ -118,3 +118,12 @@ export async function listLocalChats(): Promise<ChatRecord[]> {
   const db = getDb();
   return db.chats.orderBy("updatedAt").reverse().toArray();
 }
+
+export async function deleteLocalChatSnapshot(chatId: string): Promise<void> {
+  const db = getDb();
+
+  await db.transaction("rw", db.chats, db.conversations, async () => {
+    await db.chats.delete(chatId);
+    await db.conversations.where("chatId").equals(chatId).delete();
+  });
+}

@@ -25,14 +25,14 @@ export default async function AdminHomePage() {
 
   return (
     <main className={`${titleFont.variable} ${uiFont.variable} px-1 py-1`}>
-      <section className="rounded-3xl border border-white/15 bg-white/10 p-8 backdrop-blur-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 [font-family:var(--font-ui)]">
+      <section className="rounded-3xl border border-[var(--border)] bg-white/86 p-8 shadow-[0_18px_40px_-32px_rgba(39,77,136,0.45)] backdrop-blur-xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)] [font-family:var(--font-ui)]">
           Admin Home
         </p>
-        <h1 className="mt-3 text-4xl text-white [font-family:var(--font-title)]">
+        <h1 className="mt-3 text-4xl text-[var(--text-primary)] [font-family:var(--font-title)]">
           Welcome to Chaeni App Control Center
         </h1>
-        <p className="mt-4 max-w-2xl text-sm text-slate-100/80 [font-family:var(--font-ui)]">
+        <p className="mt-4 max-w-2xl text-sm text-[var(--text-secondary)] [font-family:var(--font-ui)]">
           Centralized entry point for operational insights, service health, and
           administrative actions.
         </p>

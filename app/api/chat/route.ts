@@ -32,6 +32,8 @@ const openaiCompatibleProvider = createOpenAI({
 
 const modelId = process.env.AI_MODEL ?? process.env.OLLAMA_MODEL ?? "gemma4:31b-cloud";
 
+export const runtime = "nodejs";
+
 function toTextOnlyModelInput(messages: UIMessage[]): UIMessage[] {
   return messages
     .map((message) => {

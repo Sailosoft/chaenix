@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chaeni App",
+  title: "Search",
   description: "Admin and operations portal for Chaeni App",
 };
 
@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-950">{children}</body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

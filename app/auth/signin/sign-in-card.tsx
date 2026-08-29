@@ -75,26 +75,26 @@ export function SignInCard({ callbackUrl, error }: SignInCardProps) {
   }
 
   return (
-    <section className="relative z-10 w-full max-w-md rounded-3xl border border-sky-100/80 bg-white/85 p-8 shadow-[0_26px_60px_-32px_rgba(56,189,248,0.45)] backdrop-blur-2xl">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.26em] text-sky-700 [font-family:var(--font-ui)]">
+    <section className="relative z-10 w-full max-w-md rounded-3xl border border-(--border) bg-white/88 p-8 shadow-[0_26px_60px_-36px_rgba(39,77,136,0.42)] backdrop-blur-2xl">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.26em] text-(--text-muted) [font-family:var(--font-ui)]">
         Admin Console
       </p>
-      <h1 className="text-4xl font-semibold leading-tight text-slate-900 [font-family:var(--font-title)]">
+      <h1 className="text-4xl font-semibold leading-tight text-(--text-primary) [font-family:var(--font-title)]">
         Welcome back my favorite user.
       </h1>
-      <p className="mt-2 text-sm text-slate-600 [font-family:var(--font-ui)]">
+      <p className="mt-2 text-sm text-(--text-secondary) [font-family:var(--font-ui)]">
         Sign in with your static admin credentials.
       </p>
 
       {humanError ? (
-        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 [font-family:var(--font-ui)]">
+        <div className="mt-6 rounded-2xl border border-(--danger-text)/35 bg-(--danger-soft) px-4 py-3 text-sm text-(--danger-text) [font-family:var(--font-ui)]">
           {humanError}
         </div>
       ) : null}
 
       <form onSubmit={handleSubmit} className="mt-7 space-y-5">
         <label className="block space-y-2">
-          <span className="text-xs font-medium uppercase tracking-[0.16em] text-sky-700 [font-family:var(--font-ui)]">
+          <span className="text-xs font-medium uppercase tracking-[0.16em] text-(--text-muted) [font-family:var(--font-ui)]">
             Username
           </span>
           <input
@@ -103,13 +103,13 @@ export function SignInCard({ callbackUrl, error }: SignInCardProps) {
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="username"
-            className="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-sky-300 focus:outline-none [font-family:var(--font-ui)]"
+            className="w-full rounded-2xl border border-(--border) bg-white px-4 py-3 text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--focus-ring) focus:outline-none [font-family:var(--font-ui)]"
             placeholder="admin"
           />
         </label>
 
         <label className="block space-y-2">
-          <span className="text-xs font-medium uppercase tracking-[0.16em] text-sky-700 [font-family:var(--font-ui)]">
+          <span className="text-xs font-medium uppercase tracking-[0.16em] text-(--text-muted) [font-family:var(--font-ui)]">
             Password
           </span>
           <input
@@ -119,14 +119,14 @@ export function SignInCard({ callbackUrl, error }: SignInCardProps) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
-            className="w-full rounded-2xl border border-sky-100 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-sky-300 focus:outline-none [font-family:var(--font-ui)]"
+            className="w-full rounded-2xl border border-(--border) bg-white px-4 py-3 text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--focus-ring) focus:outline-none [font-family:var(--font-ui)]"
             placeholder="••••••••"
           />
         </label>
 
         <button
           disabled={isSubmitting}
-          className="group flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-sky-400 via-blue-400 to-cyan-300 px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-80 [font-family:var(--font-ui)]"
+          className="group flex w-full items-center justify-center rounded-2xl bg-linear-to-r from-[#5578b0] to-[#355f9f] px-4 py-3 text-sm font-bold uppercase tracking-[0.18em] text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-80 [font-family:var(--font-ui)]"
           type="submit"
         >
           {isSubmitting ? "Signing in..." : "Sign in"}
