@@ -41,4 +41,10 @@ ENV
 NEXTAUTH_SECRET=replace-with-a-long-random-secret
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
+
+# OpenAI-compatible chat provider configuration
+# Defaults target local Ollama when these are not set.
+AI_BASE_URL=http://127.0.0.1:11434/v1
+AI_API_KEY=ollama
+AI_MODEL=gemma4:32b-cloud
 ```

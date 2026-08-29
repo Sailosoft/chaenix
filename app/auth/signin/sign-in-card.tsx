@@ -80,7 +80,7 @@ export function SignInCard({ callbackUrl, error }: SignInCardProps) {
         Admin Console
       </p>
       <h1 className="text-4xl font-semibold leading-tight text-slate-900 [font-family:var(--font-title)]">
-        Welcome back.
+        Welcome back my favorite user.
       </h1>
       <p className="mt-2 text-sm text-slate-600 [font-family:var(--font-ui)]">
         Sign in with your static admin credentials.

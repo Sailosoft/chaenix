@@ -25,12 +25,22 @@ export function SiteHeader() {
   const [isSessionLoading, setIsSessionLoading] = useState(true);
 
   const isAdminRoute = pathname.startsWith("/admin");
+  const isHomeRoute = pathname === "/";
   const homeHref = isAdminRoute ? "/admin/home" : "/";
   const homeActivePath = isAdminRoute ? "/admin/home" : "/";
+
+  const homeNavItems = [
+    { href: "#about", label: "About Us" },
+    { href: "#services", label: "Services" },
+    { href: "#industries", label: "Industries" },
+    { href: "#resources", label: "Resources" },
+    { href: "#contact", label: "Contact Us" },
+  ];
 
   const navItems = useMemo<NavItem[]>(() => {
     const items: NavItem[] = [
       { href: homeHref, activePath: homeActivePath, label: "Home" },
+      { href: "/blog", activePath: "/blog", label: "Blog" },
     ];
 
     if (isAdminRoute || isAuthenticated) {
@@ -76,6 +86,42 @@ export function SiteHeader() {
     return null;
   }
 
+  if (isHomeRoute) {
+    return (
+      <header className="absolute left-0 right-0 top-0 z-40">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 text-white">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/80 bg-[#0b5f9f] text-base font-bold text-white">
+              CA
+            </span>
+            <div>
+              <p className="text-3xl font-bold leading-none">Chaeni App</p>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-8 md:flex">
+            {homeNavItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-2xl font-semibold text-white transition hover:text-sky-100"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <Link
+            href="/auth/signin?callbackUrl=/admin"
+            className="hidden rounded-full border border-white/65 bg-white/10 px-5 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-white backdrop-blur-sm transition hover:bg-white/20 md:inline-flex"
+          >
+            Sign In
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header
       className={`sticky top-0 z-40 border-b backdrop-blur-xl ${
@@ -97,8 +143,8 @@ export function SiteHeader() {
           <span
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-[0_10px_28px_-14px_rgba(14,165,233,0.8)] transition-transform duration-300 group-hover:scale-105 ${
               isAdminRoute
-                ? "bg-gradient-to-br from-cyan-300 via-sky-300 to-blue-300 text-slate-900"
-                : "bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300 text-slate-900"
+                ? "bg-linear-to-br from-cyan-300 via-sky-300 to-blue-300 text-slate-900"
+                : "bg-linear-to-br from-sky-200 via-cyan-200 to-blue-300 text-slate-900"
             }`}
           >
             CA
@@ -174,7 +220,7 @@ export function SiteHeader() {
               className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 isAdminRoute
                   ? "bg-white text-slate-900 hover:bg-slate-100"
-                  : "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_14px_32px_-16px_rgba(14,116,144,0.9)] hover:brightness-105"
+                  : "bg-linear-to-r from-cyan-500 to-blue-600 text-white shadow-[0_14px_32px_-16px_rgba(14,116,144,0.9)] hover:brightness-105"
               }`}
             >
               Sign in to Admin

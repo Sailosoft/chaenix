@@ -11,6 +11,7 @@ type AdminNavItem = {
 
 const adminNavItems: AdminNavItem[] = [
   { href: "/admin/home", label: "Home" },
+  { href: "/admin/chat", label: "Chat" },
   { href: "/admin", label: "Dashboard" },
 ];
 
