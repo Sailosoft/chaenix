@@ -17,7 +17,9 @@ import {
 import { Virtuoso, type Components, type VirtuosoHandle } from "react-virtuoso";
 
 import {
+  getLocalChat,
   loadLocalChatSnapshot,
+  renameLocalChat,
   saveLocalChatSnapshot,
 } from "@/lib/chat-client-store";
 
@@ -138,6 +140,24 @@ function XIcon({ className }: { className?: string }) {
     >
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
@@ -351,6 +371,9 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   const [localCacheReadyId, setLocalCacheReadyId] = useState<string | null>(
     null,
   );
+  const [chatTitle, setChatTitle] = useState("Untitled Chat");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const hasLoadedLocalCache = useRef(false);
   const skipEntryAnimationIds = useRef(
     new Set(initialMessages.map((message) => message.id)),
@@ -476,11 +499,39 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
       return;
     }
 
-    void saveLocalChatSnapshot({
-      chatId: id,
-      messages,
-    });
+    void (async () => {
+      await saveLocalChatSnapshot({
+        chatId: id,
+        messages,
+      });
+
+      const record = await getLocalChat(id);
+
+      if (record) {
+        setChatTitle(record.title);
+      }
+    })();
   }, [id, messages]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void (async () => {
+      const record = await getLocalChat(id);
+
+      if (!isActive) {
+        return;
+      }
+
+      setIsEditingTitle(false);
+      setTitleDraft("");
+      setChatTitle(record?.title ?? "Untitled Chat");
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
 
   const isSending = status === "submitted" || status === "streaming";
   const isThinking = status === "submitted";
@@ -577,6 +628,23 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     );
   }, []);
 
+  const startEditTitle = useCallback(() => {
+    setTitleDraft(chatTitle);
+    setIsEditingTitle(true);
+  }, [chatTitle]);
+
+  const handleSaveTitle = useCallback(async () => {
+    const trimmedTitle = titleDraft.trim();
+
+    if (!trimmedTitle) {
+      return;
+    }
+
+    await renameLocalChat(id, trimmedTitle);
+    setChatTitle(trimmedTitle);
+    setIsEditingTitle(false);
+  }, [id, titleDraft]);
+
   const handleSend = useCallback(() => {
     const value = input.trim();
     const hasAttachments = attachments.length > 0;
@@ -654,10 +722,49 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   return (
     <main className={`${uiFont.variable} flex h-full min-h-0 flex-col [font-family:var(--font-chat-ui)]`}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-white/70 px-4 py-4 backdrop-blur-md sm:px-6">
-        <div>
-          <p className="text-sm font-semibold tracking-wide text-[var(--text-primary)]">
-            Admin Chat
-          </p>
+        <div className="min-w-0">
+          {isEditingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={titleDraft}
+                onChange={(event) => setTitleDraft(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleSaveTitle();
+                  }
+                  if (event.key === "Escape") {
+                    setIsEditingTitle(false);
+                  }
+                }}
+                autoFocus
+                aria-label="Chat name"
+                className="w-full max-w-xs rounded-md border border-[var(--border)] bg-white px-2 py-1 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--brand)]"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSaveTitle()}
+                disabled={!titleDraft.trim()}
+                className="shrink-0 rounded-md bg-[var(--brand)] px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate text-sm font-semibold tracking-wide text-[var(--text-primary)]">
+                {chatTitle || "Untitled Chat"}
+              </p>
+              <button
+                type="button"
+                onClick={startEditTitle}
+                aria-label="Rename chat"
+                className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)]"
+              >
+                <EditIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <p className="mt-1 break-all text-xs text-[var(--text-muted)]">
             ID: {id}
           </p>

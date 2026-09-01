@@ -6,6 +6,7 @@ import Dexie, { type Table } from "dexie";
 type ChatRecord = {
   id: string;
   title: string;
+  titleIsCustom?: boolean;
   createdAt: number;
   updatedAt: number;
   messageCount: number;
@@ -105,7 +106,8 @@ export async function saveLocalChatSnapshot({
 
     await db.chats.put({
       id: chatId,
-      title: getChatTitle(messages),
+      title: previous?.titleIsCustom ? previous.title : getChatTitle(messages),
+      titleIsCustom: previous?.titleIsCustom ?? false,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       messageCount: messages.length,
@@ -117,6 +119,16 @@ export async function saveLocalChatSnapshot({
 export async function listLocalChats(): Promise<ChatRecord[]> {
   const db = getDb();
   return db.chats.orderBy("updatedAt").reverse().toArray();
+}
+
+export async function getLocalChat(chatId: string): Promise<ChatRecord | undefined> {
+  const db = getDb();
+  return db.chats.get(chatId);
+}
+
+export async function renameLocalChat(chatId: string, title: string): Promise<void> {
+  const db = getDb();
+  await db.chats.update(chatId, { title, titleIsCustom: true });
 }
 
 export async function deleteLocalChatSnapshot(chatId: string): Promise<void> {
