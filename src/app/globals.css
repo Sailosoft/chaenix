@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f8ff;
+  --foreground: #102347;
+  --surface: #ffffff;
+  --surface-soft: #edf3ff;
+  --surface-muted: #e1ebff;
+  --text-primary: #102347;
+  --text-secondary: #294169;
+  --text-muted: #46608a;
+  --border: #c6d7f4;
+  --brand: #355f9f;
+  --brand-strong: #274d88;
+  --brand-soft: #d5e4fb;
+  --danger-soft: #ffe8ee;
+  --danger-text: #8f2d45;
+  --focus-ring: #7ea4da;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 12%, #dbe8ff 0%, transparent 38%),
+    radial-gradient(circle at 86% 82%, #d2e2fb 0%, transparent 42%),
+    linear-gradient(160deg, #f8fbff 0%, #eef4ff 56%, #f6f9ff 100%);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+}
+
+/* Admin chat animations */
+@keyframes chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-message-enter {
+  animation: chat-message-in 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+}
+
+@keyframes chat-thinking-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.chat-thinking-dot {
+  animation: chat-thinking-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes chat-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.chat-thinking-text {
+  background: linear-gradient(
+    90deg,
+    var(--text-muted) 25%,
+    var(--brand-strong) 50%,
+    var(--text-muted) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chat-shimmer 1.6s linear infinite;
+}
+
+@keyframes chat-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.chat-stream-cursor {
+  animation: chat-blink 0.9s step-end infinite;
+}
+
+@keyframes chat-avatar-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(53, 95, 159, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(53, 95, 159, 0);
+  }
+}
+
+.chat-avatar-active {
+  animation: chat-avatar-pulse 1.6s ease-in-out infinite;
+}
+
+/* Chat message list scrollbar */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
