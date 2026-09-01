@@ -46,5 +46,5 @@ ADMIN_PASSWORD=change-me
 # Defaults target local Ollama when these are not set.
 AI_BASE_URL=http://127.0.0.1:11434/v1
 AI_API_KEY=ollama
-AI_MODEL=gemma4:32b-cloud
+AI_MODEL=gemma4:31b-cloud
 ```

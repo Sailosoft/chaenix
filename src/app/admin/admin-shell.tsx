@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PropsWithChildren, useMemo, useState } from "react";
+import { PropsWithChildren, useEffect, useMemo, useState } from "react";
 
 type AdminNavItem = {
   href: string;
@@ -17,18 +17,28 @@ const adminNavItems: AdminNavItem[] = [
 ];
 
 function isActivePath(currentPath: string, targetPath: string) {
-  return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
+  const normalizedCurrent = currentPath.replace(/\/+$/, "");
+  const normalizedTarget = targetPath.replace(/\/+$/, "");
+
+  if (normalizedTarget === "/admin") {
+    return normalizedCurrent === "/admin";
+  }
+
+  return (
+    normalizedCurrent === normalizedTarget ||
+    normalizedCurrent.startsWith(`${normalizedTarget}/`)
+  );
 }
 
 export function AdminShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
-  const [isMenuOpen, setIsMenuOpen] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+  const [isMounted, setIsMounted] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    return window.matchMedia("(min-width: 1024px)").matches;
-  });
+  useEffect(() => {
+    setIsMounted(true);
+    setIsMenuOpen(window.matchMedia("(min-width: 1024px)").matches);
+  }, []);
 
   const activeLabel = useMemo(() => {
     const activeItem = adminNavItems.find((item) =>
@@ -39,7 +49,7 @@ export function AdminShell({ children }: PropsWithChildren) {
   }, [pathname]);
 
   return (
-    <div className="relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(171,195,232,0.35)_0%,transparent_36%),radial-gradient(circle_at_88%_82%,rgba(201,217,242,0.38)_0%,transparent_40%),linear-gradient(145deg,#f7faff_0%,#eef4ff_45%,#f8fbff_100%)] text-[var(--text-primary)]">
+    <div className="relative flex min-h-screen flex-col bg-[radial-gradient(circle_at_12%_10%,rgba(171,195,232,0.35)_0%,transparent_36%),radial-gradient(circle_at_88%_82%,rgba(201,217,242,0.38)_0%,transparent_40%),linear-gradient(145deg,#f7faff_0%,#eef4ff_45%,#f8fbff_100%)] text-[var(--text-primary)]">
       <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/82 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
@@ -83,7 +93,7 @@ export function AdminShell({ children }: PropsWithChildren) {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1400px] gap-6 px-4 pb-8 pt-6 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-1 gap-6 px-4 pb-8 pt-6 sm:px-6">
         <aside
           className={`fixed inset-y-0 left-0 z-50 border-r border-[var(--border)] bg-white/95 p-5 backdrop-blur-xl transition-all duration-200 lg:relative lg:inset-auto lg:z-auto lg:rounded-3xl lg:border lg:bg-white/84 ${
             isMenuOpen
@@ -125,7 +135,7 @@ export function AdminShell({ children }: PropsWithChildren) {
           </nav>
         </aside>
 
-        {isMenuOpen ? (
+        {isMounted && isMenuOpen ? (
           <button
             type="button"
             aria-label="Close admin menu"

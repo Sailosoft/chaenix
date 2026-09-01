@@ -19,19 +19,6 @@ type ChatRequestBody = {
   messages?: UIMessage[];
 };
 
-const openaiCompatibleProvider = createOpenAI({
-  baseURL:
-    process.env.AI_BASE_URL ??
-    process.env.OLLAMA_BASE_URL ??
-    "http://127.0.0.1:11434/v1",
-  apiKey:
-    process.env.AI_API_KEY ??
-    process.env.OLLAMA_API_KEY ??
-    "ollama",
-});
-
-const modelId = process.env.AI_MODEL ?? process.env.OLLAMA_MODEL ?? "gemma4:31b-cloud";
-
 export const runtime = "nodejs";
 
 function toTextOnlyModelInput(messages: UIMessage[]): UIMessage[] {
@@ -42,18 +29,11 @@ function toTextOnlyModelInput(messages: UIMessage[]): UIMessage[] {
         .join("\n")
         .trim();
 
-      if (!text) {
-        return null;
-      }
+      if (!text) return null;
 
       return {
         ...message,
-        parts: [
-          {
-            type: "text",
-            text,
-          },
-        ],
+        parts: [{ type: "text", text }],
       } as UIMessage;
     })
     .filter((message): message is UIMessage => message !== null);
@@ -65,6 +45,28 @@ export async function POST(req: Request) {
   if (!session) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // 1. Resolve configuration dynamically inside request execution context
+  const baseURL =
+    process.env.AI_BASE_URL ??
+    process.env.OLLAMA_BASE_URL ??
+    "http://127.0.0.1:11434/v1";
+
+  const apiKey =
+    (process.env.AI_API_KEY && process.env.AI_API_KEY.trim() !== "")
+      ? process.env.AI_API_KEY
+      : (process.env.OLLAMA_API_KEY ?? "ollama");
+
+  const modelId =
+    process.env.AI_MODEL ??
+    process.env.OLLAMA_MODEL ??
+    "gemma4:31b-cloud";
+
+  // 2. Instantiate provider per request
+  const openaiCompatibleProvider = createOpenAI({
+    baseURL,
+    apiKey,
+  });
 
   const body = (await req.json()) as ChatRequestBody;
   const id = body.id ?? body.chatId;
@@ -101,7 +103,7 @@ export async function POST(req: Request) {
   }
 
   const result = streamText({
-    model: openaiCompatibleProvider(modelId),
+    model: openaiCompatibleProvider.chat(modelId),
     messages: await convertToModelMessages(modelInputMessages),
   });
 
