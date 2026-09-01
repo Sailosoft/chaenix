@@ -1,8 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f8ff;
+  --foreground: #102347;
+  --surface: #ffffff;
+  --surface-soft: #edf3ff;
+  --surface-muted: #e1ebff;
+  --text-primary: #102347;
+  --text-secondary: #294169;
+  --text-muted: #46608a;
+  --border: #c6d7f4;
+  --brand: #355f9f;
+  --brand-strong: #274d88;
+  --brand-soft: #d5e4fb;
+  --danger-soft: #ffe8ee;
+  --danger-text: #8f2d45;
+  --focus-ring: #7ea4da;
 }
 
 @theme inline {
@@ -12,15 +25,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background:
+    radial-gradient(circle at 14% 12%, #dbe8ff 0%, transparent 38%),
+    radial-gradient(circle at 86% 82%, #d2e2fb 0%, transparent 42%),
+    linear-gradient(160deg, #f8fbff 0%, #eef4ff 56%, #f6f9ff 100%);
+  color: var(--text-primary);
   font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
 }

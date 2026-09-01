@@ -25,12 +25,22 @@ export function SiteHeader() {
   const [isSessionLoading, setIsSessionLoading] = useState(true);
 
   const isAdminRoute = pathname.startsWith("/admin");
+  const isHomeRoute = pathname === "/";
   const homeHref = isAdminRoute ? "/admin/home" : "/";
   const homeActivePath = isAdminRoute ? "/admin/home" : "/";
+
+  const homeNavItems = [
+    { href: "#home", label: "Home" },
+    { href: "#chat", label: "Chat" },
+    { href: "#reports", label: "Reports" },
+    { href: "#files", label: "Files" },
+    { href: "#contact", label: "Contact" },
+  ];
 
   const navItems = useMemo<NavItem[]>(() => {
     const items: NavItem[] = [
       { href: homeHref, activePath: homeActivePath, label: "Home" },
+      { href: "/blog", activePath: "/blog", label: "Blog" },
     ];
 
     if (isAdminRoute || isAuthenticated) {
@@ -76,29 +86,62 @@ export function SiteHeader() {
     return null;
   }
 
+  if (isHomeRoute) {
+    return (
+      <header className="absolute left-0 right-0 top-0 z-40 px-4 pt-4 sm:px-6 sm:pt-5">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between rounded-xl border border-(--border) bg-white/92 px-3 py-3 text-(--text-primary) shadow-[0_18px_42px_-26px_rgba(39,77,136,0.35)] sm:px-4">
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-(--border) bg-(--brand) text-sm font-black text-white">
+              C
+            </span>
+            <div>
+              <p className="text-base font-bold leading-none sm:text-lg">Chaeni</p>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-5 lg:flex">
+            {homeNavItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-xs font-semibold uppercase tracking-[0.08em] text-(--text-secondary) transition hover:text-(--text-primary)"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <span className="inline-flex rounded-full border border-(--border) bg-(--surface-soft) px-3 py-1 text-[11px] font-semibold text-(--text-secondary)">
+            Made with AI
+          </span>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header
       className={`sticky top-0 z-40 border-b backdrop-blur-xl ${
         isAdminRoute
-          ? "border-slate-700/50 bg-slate-950/85"
-          : "border-slate-200/70 bg-white/80"
+          ? "border-(--border) bg-(--surface)/90"
+          : "border-(--border) bg-(--surface)/80"
       }`}
     >
       <div
         className={`pointer-events-none absolute inset-0 ${
           isAdminRoute
-            ? "bg-[radial-gradient(circle_at_10%_10%,#06b6d426_0%,transparent_30%),radial-gradient(circle_at_90%_80%,#fb718526_0%,transparent_32%)]"
-            : "bg-[radial-gradient(circle_at_5%_10%,#bae6fd33_0%,transparent_30%),radial-gradient(circle_at_95%_100%,#bfdbfe33_0%,transparent_32%)]"
+            ? "bg-[radial-gradient(circle_at_8%_10%,rgba(83,124,190,0.24)_0%,transparent_36%),radial-gradient(circle_at_92%_86%,rgba(168,192,233,0.28)_0%,transparent_34%)]"
+            : "bg-[radial-gradient(circle_at_5%_10%,rgba(170,195,235,0.24)_0%,transparent_32%),radial-gradient(circle_at_95%_100%,rgba(204,220,245,0.28)_0%,transparent_34%)]"
         }`}
       />
 
       <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <Link href={homeHref} className="group inline-flex items-center gap-3">
           <span
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-[0_10px_28px_-14px_rgba(14,165,233,0.8)] transition-transform duration-300 group-hover:scale-105 ${
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-[0_10px_26px_-16px_rgba(39,77,136,0.45)] transition-transform duration-300 group-hover:scale-105 ${
               isAdminRoute
-                ? "bg-gradient-to-br from-cyan-300 via-sky-300 to-blue-300 text-slate-900"
-                : "bg-gradient-to-br from-sky-200 via-cyan-200 to-blue-300 text-slate-900"
+                ? "bg-linear-to-br from-[#b7cef0] via-[#94b5e3] to-[#6f93cb] text-[#102347]"
+                : "bg-linear-to-br from-[#d8e7fb] via-[#b7cef0] to-[#87acd9] text-[#102347]"
             }`}
           >
             CA
@@ -106,14 +149,14 @@ export function SiteHeader() {
           <div className="leading-tight">
             <p
               className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${
-                isAdminRoute ? "text-slate-300" : "text-slate-500"
+                isAdminRoute ? "text-(--text-muted)" : "text-(--text-muted)"
               }`}
             >
               Chaeni App
             </p>
             <p
               className={`text-lg font-semibold ${
-                isAdminRoute ? "text-slate-100" : "text-slate-900"
+                isAdminRoute ? "text-(--text-primary)" : "text-(--text-primary)"
               }`}
             >
               {isAdminRoute ? "Admin Control Deck" : "Operations Suite"}
@@ -133,15 +176,15 @@ export function SiteHeader() {
                 className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
                   active
                     ? isAdminRoute
-                      ? "bg-white text-slate-900"
-                      : "bg-slate-900 text-white"
+                      ? "bg-(--brand) text-white"
+                      : "bg-(--brand) text-white"
                     : isSignOut
                       ? isAdminRoute
-                        ? "text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
-                        : "text-sky-700 hover:bg-sky-50 hover:text-sky-800"
+                        ? "text-(--danger-text) hover:bg-(--danger-soft) hover:text-(--danger-text)"
+                        : "text-(--danger-text) hover:bg-(--danger-soft) hover:text-(--danger-text)"
                       : isAdminRoute
-                        ? "text-slate-200 hover:bg-white/10 hover:text-white"
-                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                        ? "text-(--text-secondary) hover:bg-(--surface-soft) hover:text-(--text-primary)"
+                        : "text-(--text-secondary) hover:bg-(--surface-soft) hover:text-(--text-primary)"
                 }`}
               >
                 {item.label}
@@ -154,7 +197,7 @@ export function SiteHeader() {
           {isSessionLoading ? (
             <span
               className={`h-10 w-32 animate-pulse rounded-xl ${
-                isAdminRoute ? "bg-white/10" : "bg-slate-200"
+                isAdminRoute ? "bg-(--surface-soft)" : "bg-(--surface-soft)"
               }`}
             />
           ) : isAuthenticated ? (
@@ -162,8 +205,8 @@ export function SiteHeader() {
               href="/auth/signout"
               className={`inline-flex items-center rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                 isAdminRoute
-                  ? "border-rose-300/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
-                  : "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+                  ? "border-(--danger-text)/30 bg-(--danger-soft) text-(--danger-text) hover:brightness-95"
+                  : "border-(--danger-text)/30 bg-(--danger-soft) text-(--danger-text) hover:brightness-95"
               }`}
             >
               Sign out
@@ -173,8 +216,8 @@ export function SiteHeader() {
               href="/auth/signin?callbackUrl=/admin"
               className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 isAdminRoute
-                  ? "bg-white text-slate-900 hover:bg-slate-100"
-                  : "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_14px_32px_-16px_rgba(14,116,144,0.9)] hover:brightness-105"
+                  ? "bg-(--brand) text-white hover:bg-(--brand-strong)"
+                  : "bg-linear-to-r from-[#5578b0] to-[#355f9f] text-white shadow-[0_14px_28px_-16px_rgba(39,77,136,0.8)] hover:brightness-105"
               }`}
             >
               Sign in to Admin
@@ -185,7 +228,7 @@ export function SiteHeader() {
 
       <nav
         className={`relative flex gap-2 overflow-x-auto border-t px-4 py-2 md:hidden ${
-          isAdminRoute ? "border-slate-700/50" : "border-slate-200/70"
+          isAdminRoute ? "border-(--border)" : "border-(--border)"
         }`}
       >
         {navItems.map((item) => {
@@ -199,15 +242,15 @@ export function SiteHeader() {
               className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] transition ${
                 active
                   ? isAdminRoute
-                    ? "bg-white text-slate-900"
-                    : "bg-slate-900 text-white"
+                    ? "bg-(--brand) text-white"
+                    : "bg-(--brand) text-white"
                   : isSignOut
                     ? isAdminRoute
-                      ? "bg-rose-500/15 text-rose-200"
-                      : "bg-sky-50 text-sky-700"
+                      ? "bg-(--danger-soft) text-(--danger-text)"
+                      : "bg-(--danger-soft) text-(--danger-text)"
                     : isAdminRoute
-                      ? "bg-white/10 text-slate-200"
-                      : "bg-slate-100 text-slate-700"
+                      ? "bg-(--surface-soft) text-(--text-secondary)"
+                      : "bg-(--surface-soft) text-(--text-secondary)"
               }`}
             >
               {item.label}
