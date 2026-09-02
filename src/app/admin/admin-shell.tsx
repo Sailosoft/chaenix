@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PropsWithChildren, useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 
 type AdminNavItem = {
   href: string;
@@ -131,8 +132,8 @@ export function AdminShell({ children }: PropsWithChildren) {
             </button>
 
             <Link href="/admin" className="flex items-center gap-2.5">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-transform duration-200 hover:scale-105">
-                CX
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 transition-transform duration-200 hover:scale-105">
+                <Sparkles className="h-4 w-4" />
               </span>
               <span className="text-lg font-bold tracking-tight text-[var(--text-primary)]">
                 chaenix
