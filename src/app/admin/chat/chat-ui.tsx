@@ -1023,7 +1023,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             {isSending ? (
               <StopIcon className="h-4 w-4" />
             ) : (
-              <ArrowUpIcon className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              <ArrowUpIcon className="h-[18px] w-[18px]" />
             )}
           </button>
         </div>
