@@ -26,8 +26,8 @@ export function SiteHeader() {
 
   const isAdminRoute = pathname.startsWith("/admin");
   const isHomeRoute = pathname === "/";
-  const homeHref = isAdminRoute ? "/admin/home" : "/";
-  const homeActivePath = isAdminRoute ? "/admin/home" : "/";
+  const homeHref = isAdminRoute ? "/admin" : "/";
+  const homeActivePath = isAdminRoute ? "/admin" : "/";
 
   const homeNavItems = [
     { href: "#home", label: "Home" },
