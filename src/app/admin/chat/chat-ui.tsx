@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { marked } from "marked";
 import Link from "next/link";
-import { Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
   useCallback,
   useEffect,
@@ -28,10 +28,10 @@ type ChatUiProps = {
   initialMessages: UIMessage[];
 };
 
-const uiFont = Space_Grotesk({
+const uiFont = Inter({
   subsets: ["latin"],
   variable: "--font-chat-ui",
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 marked.setOptions({
@@ -52,13 +52,13 @@ function parseMarkdown(text: string): string {
 }
 
 const assistantMarkdownClasses =
-  "space-y-2 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 " +
-  "[&_a]:text-[var(--brand-strong)] [&_a]:underline [&_a]:underline-offset-2 " +
-  "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--border)] [&_blockquote]:pl-3 [&_blockquote]:text-[var(--text-secondary)] " +
-  "[&_code]:rounded [&_code]:bg-[var(--surface-muted)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] " +
-  "[&_h1]:my-2 [&_h1]:text-base [&_h1]:font-bold [&_h2]:my-2 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:my-2 [&_h3]:text-sm [&_h3]:font-semibold " +
-  "[&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 " +
-  "[&_p]:my-2 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-[var(--border)] [&_pre]:bg-[var(--surface-soft)] [&_pre]:p-2 " +
+  "min-w-0 max-w-full space-y-3 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 " +
+  "[&_a]:text-[var(--brand-strong)] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-[var(--brand)]/40 [&_a]:transition-colors [&_a]:hover:decoration-[var(--brand)] " +
+  "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--brand)]/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-[var(--text-secondary)] " +
+  "[&:not(pre)_&_code]:rounded-md [&:not(pre)_&_code]:bg-[var(--surface-muted)] [&:not(pre)_&_code]:px-1.5 [&:not(pre)_&_code]:py-0.5 [&:not(pre)_&_code]:text-[0.85em] [&:not(pre)_&_code]:font-mono " +
+  "[&_h1]:my-3 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:tracking-tight [&_h2]:my-3 [&_h2]:text-base [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:my-3 [&_h3]:text-sm [&_h3]:font-semibold " +
+  "[&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 " +
+  "[&_p]:my-2.5 [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-[var(--border)] [&_pre]:bg-[var(--surface-muted)] [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[13px] " +
   "[&_strong]:font-semibold";
 
 function SparkleIcon({ className }: { className?: string }) {
@@ -162,49 +162,82 @@ function EditIcon({ className }: { className?: string }) {
   );
 }
 
-function AssistantAvatar({ active = false }: { active?: boolean }) {
+function ArrowUpIcon({ className }: { className?: string }) {
   return (
-    <div
-      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-sm ${
-        active ? "chat-avatar-active" : ""
-      }`}
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
     >
-      <SparkleIcon className="h-4 w-4" />
-    </div>
+      <path d="m18 15-6-6-6 6" />
+    </svg>
   );
 }
 
-function UserAvatar() {
+function StopIcon({ className }: { className?: string }) {
   return (
-    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)] shadow-sm">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-4 w-4"
-        aria-hidden="true"
-      >
-        <path d="M20 21a8 8 0 0 0-16 0" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    </div>
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="10" height="10" x="7" y="7" rx="2" />
+    </svg>
+  );
+}
+
+function HistoryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l4 2" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
   );
 }
 
 function ThinkingBubble() {
   return (
-    <div className="chat-message-enter flex items-start gap-2.5">
-      <AssistantAvatar active />
-      <div className="flex items-center gap-2.5 rounded-2xl rounded-tl-md border border-[var(--border)] bg-white px-4 py-3 shadow-[0_12px_28px_-22px_rgba(39,77,136,0.5)]">
-        <span className="chat-thinking-text text-sm font-medium">Thinking</span>
-        <span className="flex items-center gap-1">
+    <div className="chat-message-enter px-4 pb-3 sm:pb-4">
+      <div className="flex min-h-[56px] w-full items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-5 py-3.5 shadow-sm shadow-black/5">
+        <span className="flex items-center gap-2">
           {[0, 1, 2].map((dot) => (
             <span
               key={dot}
-              className="chat-thinking-dot h-1.5 w-1.5 rounded-full bg-[var(--brand)]"
+              className="chat-thinking-dot h-2 w-2 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)]"
               style={{ animationDelay: `${dot * 0.15}s` }}
             />
           ))}
@@ -216,15 +249,18 @@ function ThinkingBubble() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-md">
-        <SparkleIcon className="h-5 w-5" />
+    <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+      <div className="relative">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-2xl shadow-[var(--brand)]/30">
+          <SparkleIcon className="h-7 w-7" />
+        </div>
+        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] opacity-20 blur-xl" />
       </div>
-      <div>
-        <p className="text-sm font-semibold text-[var(--text-primary)]">
+      <div className="space-y-1">
+        <p className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
           How can I help you today?
         </p>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           Start the conversation with your first prompt.
         </p>
       </div>
@@ -238,11 +274,13 @@ type MessageRowProps = {
   message: UIMessage;
   animate: boolean;
   isStreaming: boolean;
+  isThinking: boolean;
 };
 
-function MessageRow({ message, animate, isStreaming }: MessageRowProps) {
+function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const attachments = useMemo<MessageAttachment[]>(() => {
     const metadata = message.metadata as
@@ -272,25 +310,68 @@ function MessageRow({ message, animate, isStreaming }: MessageRowProps) {
     }
   }, [messageText]);
 
+  useEffect(() => {
+    if (isUser || !contentRef.current) return;
+
+    const container = contentRef.current;
+    const preElements = container.querySelectorAll("pre");
+
+    preElements.forEach((pre) => {
+      if (pre.parentElement?.hasAttribute("data-code-wrapper")) return;
+
+      const code = pre.querySelector("code");
+      if (!code) return;
+
+      const codeText = code.textContent ?? "";
+      const button = document.createElement("button");
+      button.setAttribute("data-copy-btn", "true");
+      button.setAttribute("type", "button");
+      button.setAttribute("aria-label", "Copy code");
+      button.className =
+        "absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg border border-[var(--border)]/60 bg-white/90 px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] active:scale-95";
+      button.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span>';
+
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(codeText);
+          button.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3 text-green-500" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span>Copied</span>';
+          window.setTimeout(() => {
+            button.innerHTML =
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span>';
+          }, 1800);
+        } catch (error) {
+          console.error("[ChatUi] Failed to copy code:", error);
+        }
+      });
+
+      const wrapper = document.createElement("div");
+      wrapper.setAttribute("data-code-wrapper", "true");
+      wrapper.className = "relative max-w-full";
+      pre.parentNode?.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+      wrapper.appendChild(button);
+    });
+  }, [message.parts, isUser]);
+
   return (
     <div
-      className={`px-3 pb-3 sm:px-4 ${animate ? "chat-message-enter" : ""}`}
+      className={`px-4 pb-3 sm:pb-4 ${animate ? "chat-message-enter" : ""}`}
     >
       <div
-        className={`flex items-start gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}
+        className={`flex items-start ${isUser ? "flex-row-reverse" : ""}`}
       >
-        {isUser ? <UserAvatar /> : <AssistantAvatar active={isStreaming} />}
-
         <div
-          className={`flex max-w-[80%] flex-col gap-2 ${
-            isUser ? "items-end" : "items-start"
+          className={`flex min-w-0 flex-col gap-2 ${
+            isUser ? "w-full items-end" : "max-w-full flex-1 items-start"
           }`}
         >
           <div
             className={
               isUser
-                ? "flex min-h-[56px] w-full flex-col gap-2 items-end rounded-2xl rounded-tr-md bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] px-4 py-2.5 text-sm leading-relaxed text-white shadow-[0_10px_24px_-16px_rgba(39,77,136,0.8)]"
-                : "flex min-h-[64px] w-full items-start rounded-2xl rounded-tl-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-relaxed text-[var(--text-primary)] shadow-[0_12px_28px_-22px_rgba(39,77,136,0.5)]"
+                ? "flex min-h-[48px] w-fit max-w-full flex-col gap-2 items-end rounded-[28px] rounded-tr-lg bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] px-5 py-3.5 text-sm leading-relaxed text-white shadow-md shadow-black/10"
+                : "flex min-h-[56px] w-full min-w-0 max-w-full overflow-hidden items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-5 py-3.5 text-sm leading-relaxed text-[var(--text-primary)] shadow-sm shadow-black/5"
             }
           >
             {isUser && attachments.length > 0 ? (
@@ -298,10 +379,10 @@ function MessageRow({ message, animate, isStreaming }: MessageRowProps) {
                 {attachments.map((attachment) => (
                   <span
                     key={attachment.id}
-                    className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-[11px] font-medium text-white"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm"
                   >
                     <PaperclipIcon className="h-3 w-3" />
-                    <span className="max-w-[180px] truncate">
+                    <span className="max-w-[160px] truncate">
                       {attachment.name}
                     </span>
                   </span>
@@ -309,50 +390,66 @@ function MessageRow({ message, animate, isStreaming }: MessageRowProps) {
               </div>
             ) : null}
 
-            {message.parts.map((part, index) => {
-              if (part.type !== "text") {
-                return null;
-              }
-
-              const partText = (part as { text: string }).text;
-
-              if (isUser) {
-                if (!partText.trim()) {
+            <div ref={contentRef} className="w-full min-w-0 max-w-full">
+              {message.parts.map((part, index) => {
+                if (part.type !== "text") {
                   return null;
                 }
+
+                const partText = (part as { text: string }).text;
+
+                if (isUser) {
+                  if (!partText.trim()) {
+                    return null;
+                  }
+                  return (
+                    <p
+                      key={`${message.id}-${index}`}
+                      className="whitespace-pre-wrap break-words"
+                    >
+                      {partText}
+                    </p>
+                  );
+                }
+
+                if (!partText.trim() && (isThinking || isStreaming)) {
+                  return (
+                    <span key={`${message.id}-${index}`} className="flex items-center gap-2 py-1">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          key={dot}
+                          className="chat-thinking-dot h-2 w-2 rounded-full bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)]"
+                          style={{ animationDelay: `${dot * 0.15}s` }}
+                        />
+                      ))}
+                    </span>
+                  );
+                }
+
                 return (
-                  <p
+                  <div
                     key={`${message.id}-${index}`}
-                    className="whitespace-pre-wrap break-words"
-                  >
-                    {partText}
-                  </p>
+                    className={assistantMarkdownClasses}
+                    dangerouslySetInnerHTML={{ __html: parseMarkdown(partText) }}
+                  />
                 );
-              }
+              })}
+            </div>
 
-              return (
-                <div
-                  key={`${message.id}-${index}`}
-                  className={assistantMarkdownClasses}
-                  dangerouslySetInnerHTML={{ __html: parseMarkdown(partText) }}
-                />
-              );
-            })}
-
-            {isStreaming ? (
-              <span className="chat-stream-cursor mt-1 inline-block h-3.5 w-2 rounded-[2px] bg-[var(--brand)]" />
+            {isStreaming && messageText.trim() ? (
+              <span className="chat-stream-cursor mt-1 inline-block h-4 w-[3px] rounded-full bg-[var(--brand)]" />
             ) : null}
           </div>
 
-          {!isUser && !isStreaming ? (
+          {isUser || !isStreaming ? (
             <button
               type="button"
               onClick={handleCopy}
               aria-label={copied ? "Copied to clipboard" : "Copy message"}
-              className="inline-flex items-center gap-1 self-end rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)]"
+              className="inline-flex items-center gap-1.5 self-end rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] active:scale-95"
             >
               {copied ? (
-                <CheckIcon className="h-3 w-3" />
+                <CheckIcon className="h-3 w-3 text-green-500" />
               ) : (
                 <CopyIcon className="h-3 w-3" />
               )}
@@ -537,8 +634,6 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   const isThinking = status === "submitted";
   const isLocalCacheReady = localCacheReadyId === id;
 
-  // Track the id of the message currently being streamed so MessageRow can
-  // read it without re-rendering `itemContent` on every status update.
   useEffect(() => {
     if (status === "streaming" && messages.length > 0) {
       const last = messages[messages.length - 1];
@@ -549,9 +644,6 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     }
   }, [status, messages]);
 
-  // Scroll to bottom once when messages first become available (after cache
-  // hydration). `followOutput` handles subsequent appends; this only seeds the
-  // initial position.
   useEffect(() => {
     if (didScrollOnFirstMessagesRef.current || messages.length === 0) {
       return;
@@ -563,16 +655,16 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
       return;
     }
 
-    const id = requestAnimationFrame(() => {
+    const animId = requestAnimationFrame(() => {
       virtuosoRef.current?.scrollToIndex({
-        index: messages.length - 1,
+        index: displayMessages.length - 1,
         align: "end",
         behavior: "auto",
       });
       didScrollOnFirstMessagesRef.current = true;
     });
 
-    return () => cancelAnimationFrame(id);
+    return () => cancelAnimationFrame(animId);
   }, [messages.length]);
 
   const placeholder = useMemo(() => {
@@ -687,31 +779,67 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
   }, [input]);
 
+  const thinkingMessage = useMemo<UIMessage | null>(() => {
+    if (!isThinking) return null;
+    return {
+      id: "__thinking__",
+      role: "assistant",
+      parts: [],
+    };
+  }, [isThinking]);
+
+  const displayMessages = useMemo(() => {
+    if (thinkingMessage) {
+      return [
+        ...messages.filter(
+          (m) =>
+            !(
+              m.role === "assistant" &&
+              !m.parts.some(
+                (p) => p.type === "text" && (p as { text: string }).text.trim(),
+              )
+            ),
+        ),
+        thinkingMessage,
+      ];
+    }
+    return messages;
+  }, [messages, thinkingMessage]);
+
   const virtuosoComponents = useMemo<Components<UIMessage>>(
     () => ({
-      Header: () => <div className="h-3 sm:h-4" />,
+      Header: () => <div className="h-4 sm:h-6" />,
       EmptyPlaceholder: () => <EmptyState />,
-      Footer: () => (
-        <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-          {isThinking ? <ThinkingBubble /> : null}
-        </div>
-      ),
+      Footer: () => <div className="pb-4 sm:pb-6" />,
     }),
-    [isThinking],
+    [],
   );
 
   const renderItemContent = useCallback(
-    (index: number, message: UIMessage) => (
-      <MessageRow
-        message={message}
-        animate={!skipEntryAnimationIds.current.has(message.id)}
-        isStreaming={
-          message.role === "assistant" &&
-          lastSeenStreamingMessageIdRef.current === message.id
-        }
-      />
-    ),
-    [],
+    (index: number, message: UIMessage) => {
+      if (message.id === "__thinking__") {
+        return <ThinkingBubble />;
+      }
+
+      const isCurrentStreaming =
+        message.role === "assistant" &&
+        lastSeenStreamingMessageIdRef.current === message.id;
+      const isEmptyAssistant =
+        message.role === "assistant" &&
+        !message.parts.some(
+          (part) => part.type === "text" && (part as { text: string }).text.trim(),
+        );
+
+      return (
+        <MessageRow
+          message={message}
+          animate={!skipEntryAnimationIds.current.has(message.id)}
+          isStreaming={isCurrentStreaming}
+          isThinking={isThinking && isEmptyAssistant && isCurrentStreaming}
+        />
+      );
+    },
+    [isThinking],
   );
 
   const computeItemKey = useCallback(
@@ -720,9 +848,9 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   );
 
   return (
-    <main className={`${uiFont.variable} flex h-full min-h-0 flex-col [font-family:var(--font-chat-ui)]`}>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-white/70 px-4 py-4 backdrop-blur-md sm:px-6">
-        <div className="min-w-0">
+    <main className={`${uiFont.variable} flex h-full min-h-0 flex-col bg-[var(--surface)] [font-family:var(--font-chat-ui)]`}>
+      <header className="flex items-center justify-between gap-3 border-b border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-4 py-3 sm:px-6">
+        <div className="min-w-0 flex-1">
           {isEditingTitle ? (
             <div className="flex items-center gap-2">
               <input
@@ -739,64 +867,71 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
                 }}
                 autoFocus
                 aria-label="Chat name"
-                className="w-full max-w-xs rounded-md border border-[var(--border)] bg-white px-2 py-1 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--brand)]"
+                className="w-full max-w-xs rounded-full border border-[var(--border)]/50 bg-white/90 backdrop-blur-sm px-4 py-2 text-sm font-medium text-[var(--text-primary)] outline-none transition-all duration-200 focus:border-[var(--brand)]/50 focus:ring-1 focus:ring-[var(--brand)]/20"
               />
               <button
                 type="button"
                 onClick={() => void handleSaveTitle()}
                 disabled={!titleDraft.trim()}
-                className="shrink-0 rounded-md bg-[var(--brand)] px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] px-4 py-2 text-xs font-semibold text-white shadow-md shadow-[var(--brand)]/20 transition-all duration-200 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save
               </button>
             </div>
           ) : (
             <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-sm font-semibold tracking-wide text-[var(--text-primary)]">
+              <p className="truncate text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">
                 {chatTitle || "Untitled Chat"}
               </p>
               <button
                 type="button"
                 onClick={startEditTitle}
                 aria-label="Rename chat"
-                className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)]"
+                className="shrink-0 rounded-full p-2 text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90"
               >
                 <EditIcon className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
-          <p className="mt-1 break-all text-xs text-[var(--text-muted)]">
-            ID: {id}
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-            Cache: {isLocalCacheReady ? "ready" : "syncing"}
-          </p>
+        <div className="flex items-center gap-2">
+          <div className={`hidden sm:flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors duration-300 ${
+            isLocalCacheReady
+              ? "bg-emerald-50/80 text-emerald-600 ring-1 ring-emerald-200/60"
+              : "bg-amber-50/80 text-amber-600 ring-1 ring-amber-200/60"
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${
+              isLocalCacheReady ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+            }`} />
+            {isLocalCacheReady ? "Synced" : "Syncing"}
+          </div>
 
           <Link
             href="/admin/history"
-            className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-soft)]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)]/40 bg-white/80 backdrop-blur-sm px-3 py-2 text-xs font-medium text-[var(--text-secondary)] shadow-sm transition-all duration-200 hover:bg-[var(--surface-muted)] hover:shadow-md hover:border-[var(--border)]/60 active:scale-95"
           >
-            History
+            <HistoryIcon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">History</span>
           </Link>
 
           <Link
             href="/admin/chat"
-            className="rounded-xl bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--brand-strong)]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--brand-strong)] px-3 py-2 text-xs font-semibold text-white shadow-md shadow-[var(--brand)]/20 transition-all duration-200 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105 active:scale-95"
           >
-            New Chat
+            <PlusIcon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New Chat</span>
           </Link>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <Virtuoso
-          ref={virtuosoRef}
-          className="chat-scroll h-full"
-          data={messages}
-          initialTopMostItemIndex={Math.max(0, messages.length - 1)}
+        <div className="mx-auto h-full max-w-4xl">
+          <Virtuoso
+            ref={virtuosoRef}
+            className="chat-scroll h-full"
+            data={displayMessages}
+          initialTopMostItemIndex={Math.max(0, displayMessages.length - 1)}
           defaultItemHeight={72}
           increaseViewportBy={240}
           minOverscanItemCount={6}
@@ -804,11 +939,12 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
           computeItemKey={computeItemKey}
           components={virtuosoComponents}
           itemContent={renderItemContent}
-        />
+          />
+        </div>
       </div>
 
       <form
-        className="border-t border-[var(--border)] bg-white/70 px-4 py-4 backdrop-blur-md sm:px-6"
+        className="border-t border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-4 py-4 sm:px-6 sm:py-5"
         onSubmit={(event) => {
           event.preventDefault();
           handleSend();
@@ -824,21 +960,21 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
         />
 
         {attachments.length > 0 ? (
-          <div className="mx-auto mb-2 flex w-full max-w-4xl flex-wrap gap-2">
+          <div className="mx-auto mb-3 flex w-full max-w-4xl flex-wrap gap-2">
             {attachments.map((attachment) => (
               <span
                 key={attachment.id}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-white px-2.5 py-1.5 text-xs text-[var(--text-secondary)] shadow-sm"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--border)]/40 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-sm transition-all duration-200 hover:shadow-md hover:border-[var(--brand)]/30"
               >
-                <PaperclipIcon className="h-3 w-3 text-[var(--text-muted)]" />
-                <span className="max-w-[200px] truncate font-medium text-[var(--text-primary)]">
+                <PaperclipIcon className="h-3.5 w-3.5 text-[var(--brand)]" />
+                <span className="max-w-[180px] truncate font-medium text-[var(--text-primary)]">
                   {attachment.name}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeAttachment(attachment.id)}
                   aria-label={`Remove ${attachment.name}`}
-                  className="ml-0.5 flex h-4 w-4 items-center justify-center rounded text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                  className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-muted)] transition-all duration-200 hover:bg-red-50 hover:text-red-500 active:scale-90"
                 >
                   <XIcon className="h-3 w-3" />
                 </button>
@@ -847,15 +983,15 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
           </div>
         ) : null}
 
-        <div className="mx-auto flex w-full max-w-4xl items-end gap-2 rounded-2xl border border-[var(--border)] bg-white p-2 shadow-[0_14px_30px_-24px_rgba(39,77,136,0.55)] transition focus-within:border-[var(--focus-ring)] focus-within:shadow-[0_0_0_3px_rgba(126,164,218,0.28)]">
+        <div className="mx-auto flex w-full max-w-4xl items-end gap-2 rounded-3xl border border-[var(--border)]/50 bg-white/95 backdrop-blur-sm p-2 shadow-lg shadow-black/[0.03] transition-all duration-300 focus-within:border-[var(--brand)]/40 focus-within:shadow-xl focus-within:shadow-[var(--brand)]/[0.06] focus-within:ring-1 focus-within:ring-[var(--brand)]/10">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             aria-label="Attach file"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <PaperclipIcon className="h-5 w-5" />
+            <PaperclipIcon className="h-[18px] w-[18px]" />
           </button>
 
           <textarea
@@ -870,51 +1006,40 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             }}
             placeholder={placeholder}
             rows={1}
-            className="chat-textarea max-h-32 min-h-[40px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="chat-textarea max-h-32 min-h-[44px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-[15px] leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50"
           />
 
-          {isSending ? (
-            <button
-              type="button"
-              onClick={() => stop()}
-              aria-label="Stop generating"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white transition hover:bg-[var(--brand-strong)]"
-            >
-              <span className="block h-3.5 w-3.5 rounded-[3px] bg-white" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim() && attachments.length === 0}
-              aria-label="Send message"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-                aria-hidden="true"
-              >
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-            </button>
-          )}
+          <button
+            type={isSending ? "button" : "submit"}
+            onClick={isSending ? () => stop() : undefined}
+            disabled={!isSending && !input.trim() && attachments.length === 0}
+            aria-label={isSending ? "Stop generating" : "Send message"}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
+              isSending
+                ? "bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-red-50 hover:text-red-500 shadow-sm"
+                : "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-md shadow-[var(--brand)]/20 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105"
+            }`}
+          >
+            {isSending ? (
+              <StopIcon className="h-4 w-4" />
+            ) : (
+              <ArrowUpIcon className="h-[18px] w-[18px]" strokeWidth={2.5} />
+            )}
+          </button>
         </div>
 
-        <p className="mx-auto mt-2 max-w-4xl text-center text-[11px] text-[var(--text-muted)]">
-          <kbd className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] shadow-sm">
+        <p className="mx-auto mt-2.5 max-w-4xl text-center text-[11px] text-[var(--text-muted)]/60">
+          <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
             Shift
           </kbd>
-          {" + "}
-          <kbd className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-secondary)] shadow-sm">
+          <span className="mx-1 text-[var(--text-muted)]/40">+</span>
+          <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
             Enter
           </kbd>
-          {" for new line · Enter to send · "}AI can make mistakes. Please verify important information.
+          <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
+          <span className="text-[var(--text-muted)]/50">Enter to send</span>
+          <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
+          <span className="text-[var(--text-muted)]/50">AI can make mistakes</span>
         </p>
       </form>
     </main>
