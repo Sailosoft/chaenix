@@ -231,8 +231,8 @@ function PlusIcon({ className }: { className?: string }) {
 
 function ThinkingBubble() {
   return (
-    <div className="chat-message-enter px-4 pb-3 sm:pb-4">
-      <div className="flex min-h-[56px] w-full items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-5 py-3.5 shadow-sm shadow-black/5">
+    <div className="chat-message-enter px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="flex min-h-[56px] w-full items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-4 py-3 shadow-sm shadow-black/5 sm:px-5 sm:py-3.5">
         <span className="flex items-center gap-2">
           {[0, 1, 2].map((dot) => (
             <span
@@ -249,7 +249,7 @@ function ThinkingBubble() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
+    <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center sm:py-20">
       <div className="relative">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-2xl shadow-[var(--brand)]/30">
           <SparkleIcon className="h-7 w-7" />
@@ -301,8 +301,19 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
   }, [message.parts]);
 
   const handleCopy = useCallback(async () => {
+    const html = parseMarkdown(messageText);
+
     try {
-      await navigator.clipboard.writeText(messageText);
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([messageText], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(messageText);
+      }
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch (error) {
@@ -357,7 +368,7 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
 
   return (
     <div
-      className={`px-4 pb-3 sm:pb-4 ${animate ? "chat-message-enter" : ""}`}
+      className={`px-3 pb-3 sm:px-4 sm:pb-4 ${animate ? "chat-message-enter" : ""}`}
     >
       <div
         className={`flex items-start ${isUser ? "flex-row-reverse" : ""}`}
@@ -370,8 +381,8 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
           <div
             className={
               isUser
-                ? "flex min-h-[48px] w-fit max-w-full flex-col gap-2 items-end rounded-[28px] rounded-tr-lg bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] px-5 py-3.5 text-sm leading-relaxed text-white shadow-md shadow-black/10"
-                : "flex min-h-[56px] w-full min-w-0 max-w-full overflow-hidden items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-5 py-3.5 text-sm leading-relaxed text-[var(--text-primary)] shadow-sm shadow-black/5"
+                ? "flex min-h-[48px] w-fit max-w-full flex-col gap-2 items-end rounded-[28px] rounded-tr-lg bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] px-4 py-3 text-sm leading-relaxed text-white shadow-md shadow-black/10 sm:px-5 sm:py-3.5"
+                : "flex min-h-[56px] w-full min-w-0 max-w-full overflow-hidden items-start rounded-[28px] rounded-tl-lg border border-gray-100 bg-white px-4 py-3 text-sm leading-relaxed text-[var(--text-primary)] shadow-sm shadow-black/5 sm:px-5 sm:py-3.5"
             }
           >
             {isUser && attachments.length > 0 ? (
@@ -849,7 +860,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
 
   return (
     <main className={`${uiFont.variable} flex h-full min-h-0 flex-col bg-[var(--surface)] [font-family:var(--font-chat-ui)]`}>
-      <header className="flex items-center justify-between gap-3 border-b border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-4 py-3 sm:px-6">
+      <header className="flex items-center justify-between gap-3 border-b border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-3 py-2.5 sm:px-6 sm:py-3">
         <div className="min-w-0 flex-1">
           {isEditingTitle ? (
             <div className="flex items-center gap-2">
@@ -887,7 +898,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
                 type="button"
                 onClick={startEditTitle}
                 aria-label="Rename chat"
-                className="shrink-0 rounded-full p-2 text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90"
+                className="shrink-0 rounded-full p-2.5 text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90"
               >
                 <EditIcon className="h-3.5 w-3.5" />
               </button>
@@ -929,7 +940,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
         <div className="mx-auto h-full max-w-4xl">
           <Virtuoso
             ref={virtuosoRef}
-            className="chat-scroll h-full"
+            className="chat-scroll h-full overscroll-contain"
             data={displayMessages}
           initialTopMostItemIndex={Math.max(0, displayMessages.length - 1)}
           defaultItemHeight={72}
@@ -944,7 +955,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
       </div>
 
       <form
-        className="border-t border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-4 py-4 sm:px-6 sm:py-5"
+        className="border-t border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         onSubmit={(event) => {
           event.preventDefault();
           handleSend();
@@ -967,7 +978,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--border)]/40 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs text-[var(--text-secondary)] shadow-sm transition-all duration-200 hover:shadow-md hover:border-[var(--brand)]/30"
               >
                 <PaperclipIcon className="h-3.5 w-3.5 text-[var(--brand)]" />
-                <span className="max-w-[180px] truncate font-medium text-[var(--text-primary)]">
+                <span className="max-w-[140px] truncate font-medium text-[var(--text-primary)] sm:max-w-[180px]">
                   {attachment.name}
                 </span>
                 <button
@@ -989,7 +1000,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             aria-label="Attach file"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
           >
             <PaperclipIcon className="h-[18px] w-[18px]" />
           </button>
@@ -1005,8 +1016,9 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
               }
             }}
             placeholder={placeholder}
+            enterKeyHint="send"
             rows={1}
-            className="chat-textarea max-h-32 min-h-[44px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-[15px] leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50"
+            className="chat-textarea max-h-32 min-h-[44px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50 sm:text-[15px]"
           />
 
           <button
@@ -1014,7 +1026,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             onClick={isSending ? () => stop() : undefined}
             disabled={!isSending && !input.trim() && attachments.length === 0}
             aria-label={isSending ? "Stop generating" : "Send message"}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10 ${
               isSending
                 ? "bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-red-50 hover:text-red-500 shadow-sm"
                 : "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-md shadow-[var(--brand)]/20 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105"
@@ -1029,17 +1041,20 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
         </div>
 
         <p className="mx-auto mt-2.5 max-w-4xl text-center text-[11px] text-[var(--text-muted)]/60">
-          <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
-            Shift
-          </kbd>
-          <span className="mx-1 text-[var(--text-muted)]/40">+</span>
-          <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
-            Enter
-          </kbd>
-          <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
-          <span className="text-[var(--text-muted)]/50">Enter to send</span>
-          <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
-          <span className="text-[var(--text-muted)]/50">AI can make mistakes</span>
+          <span className="sm:hidden">AI can make mistakes</span>
+          <span className="hidden sm:inline">
+            <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
+              Shift
+            </kbd>
+            <span className="mx-1 text-[var(--text-muted)]/40">+</span>
+            <kbd className="rounded-md border border-[var(--border)]/40 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]/80 shadow-sm">
+              Enter
+            </kbd>
+            <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
+            <span className="text-[var(--text-muted)]/50">Enter to send</span>
+            <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
+            <span className="text-[var(--text-muted)]/50">AI can make mistakes</span>
+          </span>
         </p>
       </form>
     </main>
