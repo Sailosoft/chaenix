@@ -106,7 +106,7 @@ export function AdminShell({ children }: PropsWithChildren) {
   }, [isMenuOpen]);
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#f8fafc] text-[var(--text-primary)]">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-[#f8fafc] text-[var(--text-primary)]">
       <header className="sticky top-0 z-40 border-b border-[var(--border)]/60 bg-white/70 backdrop-blur-2xl">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
@@ -163,7 +163,7 @@ export function AdminShell({ children }: PropsWithChildren) {
         </div>
       </header>
 
-      <div className="relative flex flex-1">
+      <div className="relative flex min-h-0 flex-1">
         {isMounted && isMenuOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300 lg:hidden"
@@ -231,7 +231,7 @@ export function AdminShell({ children }: PropsWithChildren) {
         </aside>
 
         <main
-          className="flex-1 p-2 sm:p-6 lg:ml-0"
+          className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-6 lg:ml-0"
           onClick={() => {
             if (isMenuOpen) setIsMenuOpen(false);
           }}
