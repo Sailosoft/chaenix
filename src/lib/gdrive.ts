@@ -508,6 +508,35 @@ export async function startResumableUpload(
   return location;
 }
 
+export async function uploadStreamToUrl(
+  uploadUrl: string,
+  body: ReadableStream | null,
+  mimeType: string,
+): Promise<void> {
+  const buffer = await new Response(body).arrayBuffer();
+
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": mimeType,
+    },
+    body: buffer,
+  });
+
+  if (!res.ok) {
+    let message = "Google rejected the upload.";
+
+    try {
+      const data = (await res.json()) as { error?: { message?: string } };
+      message = data.error?.message ?? message;
+    } catch {
+      // keep default message
+    }
+
+    throw new GdriveUpstreamError(message);
+  }
+}
+
 export function gdriveErrorResponse(error: unknown): Response {
   if (error instanceof GdriveError) {
     return Response.json({ error: error.message }, { status: error.status });

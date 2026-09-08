@@ -109,6 +109,25 @@ function CopyIcon({ className }: { className?: string }) {
   );
 }
 
+function TypeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="4 7 4 4 20 4 20 7" />
+      <line x1="9" y1="20" x2="15" y2="20" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </svg>
+  );
+}
+
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -279,7 +298,6 @@ type MessageRowProps = {
 
 function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowProps) {
   const isUser = message.role === "user";
-  const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const attachments = useMemo<MessageAttachment[]>(() => {
@@ -300,7 +318,9 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
       .join("");
   }, [message.parts]);
 
-  const handleCopy = useCallback(async () => {
+  const [copyMode, setCopyMode] = useState<"idle" | "html" | "text">("idle");
+
+  const handleCopyHtml = useCallback(async () => {
     const html = parseMarkdown(messageText);
 
     try {
@@ -314,10 +334,20 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
       } else {
         await navigator.clipboard.writeText(messageText);
       }
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      setCopyMode("html");
+      window.setTimeout(() => setCopyMode("idle"), 1800);
     } catch (error) {
-      console.error("[ChatUi] Failed to copy message:", error);
+      console.error("[ChatUi] Failed to copy message as HTML:", error);
+    }
+  }, [messageText]);
+
+  const handleCopyText = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(messageText);
+      setCopyMode("text");
+      window.setTimeout(() => setCopyMode("idle"), 1800);
+    } catch (error) {
+      console.error("[ChatUi] Failed to copy message as plain text:", error);
     }
   }, [messageText]);
 
@@ -453,19 +483,34 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
           </div>
 
           {isUser || !isStreaming ? (
-            <button
-              type="button"
-              onClick={handleCopy}
-              aria-label={copied ? "Copied to clipboard" : "Copy message"}
-              className="inline-flex items-center gap-1.5 self-end rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] active:scale-95"
-            >
-              {copied ? (
-                <CheckIcon className="h-3 w-3 text-green-500" />
-              ) : (
-                <CopyIcon className="h-3 w-3" />
-              )}
-              <span>{copied ? "Copied" : "Copy"}</span>
-            </button>
+            <div className="flex items-center gap-1 self-end">
+              <button
+                type="button"
+                onClick={handleCopyHtml}
+                aria-label="Copy as rich text"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] active:scale-95"
+              >
+                {copyMode === "html" ? (
+                  <CheckIcon className="h-3 w-3 text-green-500" />
+                ) : (
+                  <CopyIcon className="h-3 w-3" />
+                )}
+                <span>{copyMode === "html" ? "Copied" : "Copy"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyText}
+                aria-label="Copy as plain text"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-secondary)] active:scale-95"
+              >
+                {copyMode === "text" ? (
+                  <CheckIcon className="h-3 w-3 text-green-500" />
+                ) : (
+                  <TypeIcon className="h-3 w-3" />
+                )}
+                <span>{copyMode === "text" ? "Copied" : "Plain Text"}</span>
+              </button>
+            </div>
           ) : null}
         </div>
       </div>

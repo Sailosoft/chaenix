@@ -438,29 +438,26 @@ export function DriveUi() {
     const { key, file, parentId } = upload;
 
     try {
-      const sessionRes = await fetch("/api/drive/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: file.name,
-          mimeType: file.type || "application/octet-stream",
-          ...(parentId ? { parentId } : {}),
-        }),
-      });
-      const sessionData = await sessionRes.json();
+      const headers: Record<string, string> = {
+        "Content-Type": file.type || "application/octet-stream",
+        "X-File-Name": file.name,
+      };
 
-      if (!sessionRes.ok) {
-        throw new Error(sessionData?.error ?? "Could not start upload.");
+      if (parentId) {
+        headers["X-Parent-Id"] = parentId;
       }
 
-      const putRes = await fetch(sessionData.uploadUrl as string, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+      const res = await fetch("/api/drive/upload", {
+        method: "POST",
+        headers,
         body: file,
       });
+      const data = await res.json().catch(() => null);
 
-      if (!putRes.ok) {
-        throw new Error("Google rejected the upload.");
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string } | null)?.error ?? "Upload failed.",
+        );
       }
 
       setUploads((current) => current.filter((entry) => entry.key !== key));

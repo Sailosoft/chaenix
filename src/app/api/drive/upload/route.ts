@@ -1,40 +1,41 @@
 import { z } from "zod";
 
+import { DRIVE_ID_SCHEMA, isAdminSession, unauthorizedResponse } from "@/lib/drive-api";
 import {
-  DRIVE_ID_SCHEMA,
-  isAdminSession,
-  parseJsonBody,
-  unauthorizedResponse,
-} from "@/lib/drive-api";
-import { gdriveErrorResponse, startResumableUpload } from "@/lib/gdrive";
+  gdriveErrorResponse,
+  startResumableUpload,
+  uploadStreamToUrl,
+} from "@/lib/gdrive";
 
 export const runtime = "nodejs";
 
-const uploadSchema = z.object({
-  name: z.string().min(1).max(255),
-  mimeType: z.string().min(1).max(255),
-  parentId: DRIVE_ID_SCHEMA.optional(),
-});
+const nameSchema = z.string().min(1).max(255);
+const mimeTypeSchema = z.string().min(1).max(255);
+const parentIdSchema = DRIVE_ID_SCHEMA.optional();
 
 export async function POST(req: Request) {
   if (!(await isAdminSession())) {
     return unauthorizedResponse();
   }
 
-  const parsed = await parseJsonBody(req, uploadSchema);
+  const nameRaw = req.headers.get("x-file-name");
+  const mimeRaw = req.headers.get("content-type");
+  const parentRaw = req.headers.get("x-parent-id") || undefined;
 
-  if ("error" in parsed) {
-    return parsed.error;
+  const name = nameSchema.safeParse(nameRaw);
+  const mimeType = mimeTypeSchema.safeParse(mimeRaw);
+  const parentId = parentRaw === undefined ? { success: true as const, data: undefined } : parentIdSchema.safeParse(parentRaw);
+
+  if (!name.success || !mimeType.success || !parentId.success) {
+    return Response.json({ error: "Invalid upload metadata." }, { status: 400 });
   }
 
   try {
-    const uploadUrl = await startResumableUpload(
-      parsed.data.name,
-      parsed.data.mimeType,
-      parsed.data.parentId,
-    );
+    const uploadUrl = await startResumableUpload(name.data, mimeType.data, parentId.data);
 
-    return Response.json({ uploadUrl });
+    await uploadStreamToUrl(uploadUrl, req.body, mimeType.data);
+
+    return Response.json({ ok: true });
   } catch (error) {
     return gdriveErrorResponse(error);
   }
