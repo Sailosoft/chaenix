@@ -24,8 +24,14 @@ type UploadState = {
 
 type OrderBy = "name" | "modified" | "size";
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function reportError(context: string, error: unknown): string {
+  console.error(`[DriveUi] ${context} failed:`, error);
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return `Something went wrong while ${context}. Please try again.`;
 }
 
 function isGoogleNative(entry: DriveEntry): boolean {
@@ -221,7 +227,7 @@ export function DriveUi() {
         nextPageToken: (data.nextPageToken as string | null) ?? null,
       });
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("loading the file list", err));
       setListData({ key, items: [], nextPageToken: null });
     }
   }, [currentFolderId, activeSearch, orderBy]);
@@ -269,7 +275,7 @@ export function DriveUi() {
           : current,
       );
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("loading more files", err));
     } finally {
       setIsLoadingMore(false);
     }
@@ -356,7 +362,7 @@ export function DriveUi() {
       );
       setRenamingId(null);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("renaming the file", err));
     }
   }
 
@@ -394,7 +400,7 @@ export function DriveUi() {
         return next;
       });
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("moving the file to trash", err));
     } finally {
       setIsDeletingId(null);
     }
@@ -428,7 +434,7 @@ export function DriveUi() {
       setNewFolderName("");
       await refresh();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("creating the folder", err));
     } finally {
       setIsCreatingBusy(false);
     }
@@ -463,10 +469,18 @@ export function DriveUi() {
       setUploads((current) => current.filter((entry) => entry.key !== key));
       await refresh();
     } catch (err) {
+      console.error(`[DriveUi] Uploading "${file.name}" failed:`, err);
       setUploads((current) =>
         current.map((entry) =>
           entry.key === key
-            ? { ...entry, status: "error" as const, error: errorMessage(err) }
+            ? {
+                ...entry,
+                status: "error" as const,
+                error:
+                  err instanceof Error && err.message
+                    ? err.message
+                    : "Upload failed. Please try again.",
+              }
             : entry,
         ),
       );
@@ -550,7 +564,7 @@ export function DriveUi() {
       clearSelection();
       await refresh();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("deleting the selected items", err));
     } finally {
       setIsBulkBusy(false);
     }
@@ -1073,7 +1087,7 @@ function MoveModal({
           return;
         }
 
-        setError(errorMessage(err));
+        setError(reportError("loading the folder list", err));
         setFolderData({ key, folders: [], nextPageToken: null });
       }
     })();
@@ -1120,7 +1134,7 @@ function MoveModal({
           : current,
       );
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("loading more folders", err));
     } finally {
       setIsLoadingMore(false);
     }
@@ -1160,7 +1174,7 @@ function MoveModal({
         );
       }
     } catch (err) {
-      setError(errorMessage(err));
+      setError(reportError("moving the selected items", err));
     } finally {
       setIsMoving(false);
     }
