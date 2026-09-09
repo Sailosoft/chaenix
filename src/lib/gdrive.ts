@@ -62,6 +62,27 @@ export class GdriveNativeFileError extends GdriveError {
   }
 }
 
+export class GdriveAuthError extends GdriveError {
+  constructor(message: string) {
+    super(message, 401);
+    this.name = "GdriveAuthError";
+  }
+}
+
+export class GdriveQuotaError extends GdriveError {
+  constructor(message: string) {
+    super(message, 429);
+    this.name = "GdriveQuotaError";
+  }
+}
+
+export class GdriveRateLimitError extends GdriveError {
+  constructor(message: string) {
+    super(message, 429);
+    this.name = "GdriveRateLimitError";
+  }
+}
+
 export class GdriveUpstreamError extends GdriveError {
   constructor(message: string) {
     super(message, 502);
@@ -183,19 +204,47 @@ function asGdriveError(err: unknown, notFoundMessage: string): GdriveError {
   const status = (err as GaxiosLikeError | null)?.response?.status;
   const message = googleMessage(err);
 
+  console.error(`[gdrive] request failed (${notFoundMessage})`, {
+    status,
+    googleMessage: message,
+    cause: err,
+  });
+
+  if (status === 401) {
+    return new GdriveAuthError(
+      message ??
+        "Drive authentication failed. Check GDRIVE_CLIENT_EMAIL and GDRIVE_PRIVATE_KEY.",
+    );
+  }
+
+  if (status === 403) {
+    if (/quota|storage limit/i.test(message ?? "")) {
+      return new GdriveQuotaError(
+        message ?? "Drive storage quota exceeded. Free up space and try again.",
+      );
+    }
+
+    return new GdriveAuthError(
+      message ??
+        "Drive permission denied. Share the target folder with the service account.",
+    );
+  }
+
   if (status === 404) {
     return new GdriveNotFoundError(notFoundMessage);
   }
 
-  if (status === 403) {
-    return new GdriveNotFoundError(message ?? notFoundMessage);
+  if (status === 429) {
+    return new GdriveRateLimitError(
+      message ?? "Drive is rate-limiting requests. Wait a moment and try again.",
+    );
   }
 
   if (status !== undefined && status >= 400 && status < 500) {
     return new GdriveInputError(message ?? "Invalid Drive request.");
   }
 
-  return new GdriveUpstreamError(message ?? "Drive request failed.");
+  return new GdriveUpstreamError(message ?? "Google Drive request failed.");
 }
 
 function toEntry(file: drive_v3.Schema$File): DriveEntry {
@@ -259,7 +308,6 @@ export async function listFolder(options: {
       nextPageToken: res.data.nextPageToken ?? null,
     };
   } catch (err) {
-    console.error("[gdrive] listFolder failed:", err);
     throw asGdriveError(err, "Folder not accessible.");
   }
 }
@@ -492,8 +540,30 @@ export async function startResumableUpload(
       // keep default message
     }
 
-    if (res.status === 404 || res.status === 403) {
+    console.error("[gdrive] Failed to start resumable upload:", {
+      status: res.status,
+      googleMessage: message,
+    });
+
+    if (res.status === 404) {
       throw new GdriveNotFoundError("Folder not accessible.");
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      if (/quota|storage limit/i.test(message)) {
+        throw new GdriveQuotaError(message);
+      }
+
+      throw new GdriveAuthError(
+        message ??
+          "Drive permission denied. Share the target folder with the service account.",
+      );
+    }
+
+    if (res.status === 429) {
+      throw new GdriveRateLimitError(
+        message ?? "Drive is rate-limiting requests. Wait a moment and try again.",
+      );
     }
 
     throw new GdriveUpstreamError(message);
@@ -513,7 +583,19 @@ export async function uploadStreamToUrl(
   body: ReadableStream | null,
   mimeType: string,
 ): Promise<void> {
-  const buffer = await new Response(body).arrayBuffer();
+  let buffer: ArrayBuffer;
+
+  try {
+    buffer = await new Response(body).arrayBuffer();
+  } catch (err) {
+    console.error("[gdrive] Failed to read upload request body:", err);
+    throw new GdriveInputError("Could not read the file being uploaded.");
+  }
+
+  if (buffer.byteLength === 0) {
+    console.error("[gdrive] Upload attempted with an empty body.");
+    throw new GdriveInputError("The uploaded file is empty.");
+  }
 
   const res = await fetch(uploadUrl, {
     method: "PUT",
@@ -524,16 +606,46 @@ export async function uploadStreamToUrl(
   });
 
   if (!res.ok) {
-    let message = "Google rejected the upload.";
+    let message: string | null = null;
 
     try {
       const data = (await res.json()) as { error?: { message?: string } };
-      message = data.error?.message ?? message;
+      message = data.error?.message ?? null;
     } catch {
-      // keep default message
+      // keep null
     }
 
-    throw new GdriveUpstreamError(message);
+    console.error("[gdrive] Upload media PUT failed:", {
+      status: res.status,
+      googleMessage: message,
+    });
+
+    if (res.status === 404) {
+      throw new GdriveNotFoundError("Upload session expired. Please try again.");
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      if (message && /quota|storage limit/i.test(message)) {
+        throw new GdriveQuotaError(
+          message ?? "Drive storage quota exceeded. Free up space and try again.",
+        );
+      }
+
+      throw new GdriveAuthError(
+        message ??
+          "Drive permission denied. Share the target folder with the service account.",
+      );
+    }
+
+    if (res.status === 429) {
+      throw new GdriveRateLimitError(
+        message ?? "Drive is rate-limiting requests. Wait a moment and try again.",
+      );
+    }
+
+    throw new GdriveUpstreamError(
+      message ?? "Google Drive rejected the upload.",
+    );
   }
 }
 
