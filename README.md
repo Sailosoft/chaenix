@@ -62,4 +62,8 @@ SUPABASE_STORAGE_BUCKET=drive
 3. **Storage → New bucket** → name `drive`, **public = off**. No storage policies are needed; only the server-side service-role client touches it. Raise the bucket's file size limit if the proxied upload path needs more than the project default.
 4. Set the env vars above. `SUPABASE_SERVICE_ROLE_KEY` accepts either the legacy `service_role` JWT or the newer `sb_secret_…` key.
 
+Step-by-step guides, including where to find each value in the Supabase dashboard:
+[docs/Guides/supabase-dashboard-setup.md](docs/Guides/supabase-dashboard-setup.md) and
+[docs/Guides/supabase-env-vars.md](docs/Guides/supabase-env-vars.md).
+
 Notes (v1): uploads are proxied through the route handler, so they are bounded by the host body limit (~4.5 MB on Vercel). Downloads are streamed server-side through a short-lived signed URL. Deletes are soft deletes — items move to the Trash view, where they can be restored or permanently deleted. On Vercel, make sure `NEXTAUTH_URL` and `NEXTAUTH_SECRET` are set so the admin session cookie works on preview/prod domains.
