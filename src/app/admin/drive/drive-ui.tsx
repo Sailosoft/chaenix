@@ -9,7 +9,10 @@ type DriveEntry = {
   size?: string;
   modifiedTime: string;
   isFolder: boolean;
+  deletedAt?: string;
 };
+
+type DriveView = "files" | "trash";
 
 type PathSegment = { id: string; name: string };
 
@@ -32,10 +35,6 @@ function reportError(context: string, error: unknown): string {
   }
 
   return `Something went wrong while ${context}. Please try again.`;
-}
-
-function isGoogleNative(entry: DriveEntry): boolean {
-  return !entry.isFolder && entry.mimeType.startsWith("application/vnd.google-apps.");
 }
 
 function formatSize(size?: string): string {
@@ -89,6 +88,14 @@ function TrashIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
       <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
+      <path d="M3 12a9 9 0 1 0 2.64-6.36" /><path d="M3 3v6h6" />
     </svg>
   );
 }
@@ -180,11 +187,13 @@ export function DriveUi() {
   const [isDragging, setIsDragging] = useState(false);
   const [isBulkBusy, setIsBulkBusy] = useState(false);
   const [moveModalIds, setMoveModalIds] = useState<string[] | null>(null);
+  const [view, setView] = useState<DriveView>("files");
+  const [trashBusyId, setTrashBusyId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentFolderId = pathStack.length > 0 ? pathStack[pathStack.length - 1].id : null;
-  const viewKey = `${currentFolderId ?? "root"}|${activeSearch}|${orderBy}`;
+  const viewKey = `${view}|${currentFolderId ?? "root"}|${activeSearch}|${orderBy}`;
   const items = listData?.key === viewKey ? listData.items : [];
   const nextPageToken = listData?.key === viewKey ? listData.nextPageToken : null;
   const isLoading = listData?.key !== viewKey;
@@ -198,12 +207,14 @@ export function DriveUi() {
   }, [search]);
 
   const refresh = useCallback(async () => {
-    const key = `${currentFolderId ?? "root"}|${activeSearch}|${orderBy}`;
+    const key = `${view}|${currentFolderId ?? "root"}|${activeSearch}|${orderBy}`;
 
     try {
       const params = new URLSearchParams();
 
-      if (currentFolderId) {
+      if (view === "trash") {
+        params.set("trashed", "true");
+      } else if (currentFolderId) {
         params.set("folderId", currentFolderId);
       }
 
@@ -230,7 +241,7 @@ export function DriveUi() {
       setError(reportError("loading the file list", err));
       setListData({ key, items: [], nextPageToken: null });
     }
-  }, [currentFolderId, activeSearch, orderBy]);
+  }, [view, currentFolderId, activeSearch, orderBy]);
 
   useEffect(() => {
     void refresh();
@@ -246,7 +257,9 @@ export function DriveUi() {
     try {
       const params = new URLSearchParams();
 
-      if (currentFolderId) {
+      if (view === "trash") {
+        params.set("trashed", "true");
+      } else if (currentFolderId) {
         params.set("folderId", currentFolderId);
       }
 
@@ -316,6 +329,21 @@ export function DriveUi() {
     });
   }
 
+  function switchView(next: DriveView): void {
+    if (next === view) {
+      return;
+    }
+
+    setView(next);
+    setPathStack([]);
+    clearSelection();
+    setRenamingId(null);
+    setIsCreatingFolder(false);
+    setNewFolderName("");
+    setSearch("");
+    setError(null);
+  }
+
   function openFolder(entry: DriveEntry): void {
     setPathStack((current) => [...current, { id: entry.id, name: entry.name }]);
     clearSelection();
@@ -372,7 +400,7 @@ export function DriveUi() {
     }
 
     const shouldDelete = window.confirm(
-      `Move "${entry.name}" to the Drive trash? This can be undone from Google Drive.`,
+      `Move "${entry.name}"${entry.isFolder ? " and everything inside it" : ""} to Trash? You can restore it later.`,
     );
 
     if (!shouldDelete) {
@@ -525,6 +553,46 @@ export function DriveUi() {
     void runUpload({ ...upload, status: "uploading", error: undefined });
   }
 
+  async function runBulkAction(
+    action: "move" | "delete" | "restore" | "purge",
+    ids: string[],
+    fallbackMessage: string,
+    context: string,
+  ): Promise<void> {
+    setIsBulkBusy(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/drive/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? fallbackMessage);
+      }
+
+      let failureMessage: string | null = null;
+
+      if (Array.isArray(data.failed) && data.failed.length > 0) {
+        failureMessage = `${data.failed.length} item(s) failed: ${(data.failed[0] as { error?: string }).error ?? "unknown error"}`;
+      }
+
+      clearSelection();
+      await refresh();
+
+      if (failureMessage) {
+        setError(failureMessage);
+      }
+    } catch (err) {
+      setError(reportError(context, err));
+    } finally {
+      setIsBulkBusy(false);
+    }
+  }
+
   async function handleBulkDelete(): Promise<void> {
     const ids = Array.from(selected);
 
@@ -533,40 +601,117 @@ export function DriveUi() {
     }
 
     const shouldDelete = window.confirm(
-      `Move ${ids.length} item(s) to the Drive trash? This can be undone from Google Drive.`,
+      `Move ${ids.length} item(s) to Trash? You can restore them later.`,
     );
 
     if (!shouldDelete) {
       return;
     }
 
-    setIsBulkBusy(true);
+    await runBulkAction("delete", ids, "Bulk delete failed.", "moving the selected items to trash");
+  }
+
+  async function handleBulkRestore(): Promise<void> {
+    const ids = Array.from(selected);
+
+    if (ids.length === 0 || isBulkBusy) {
+      return;
+    }
+
+    await runBulkAction("restore", ids, "Bulk restore failed.", "restoring the selected items");
+  }
+
+  async function handleBulkPurge(): Promise<void> {
+    const ids = Array.from(selected);
+
+    if (ids.length === 0 || isBulkBusy) {
+      return;
+    }
+
+    const shouldPurge = window.confirm(
+      `Permanently delete ${ids.length} item(s)? This cannot be undone.`,
+    );
+
+    if (!shouldPurge) {
+      return;
+    }
+
+    await runBulkAction("purge", ids, "Bulk delete failed.", "permanently deleting the selected items");
+  }
+
+  async function handleRestore(entry: DriveEntry): Promise<void> {
+    if (trashBusyId) {
+      return;
+    }
+
+    setTrashBusyId(entry.id);
     setError(null);
 
     try {
       const res = await fetch("/api/drive/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", ids }),
+        body: JSON.stringify({ action: "restore", ids: [entry.id] }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error ?? "Bulk delete failed.");
+        throw new Error(data?.error ?? "Restore failed.");
       }
 
-      if (Array.isArray(data.failed) && data.failed.length > 0) {
-        setError(
-          `${data.failed.length} item(s) failed to delete: ${(data.failed[0] as { error?: string }).error ?? "unknown error"}`,
-        );
-      }
+      const failed = (data.failed ?? []) as { error?: string }[];
 
-      clearSelection();
       await refresh();
+
+      if (failed.length > 0) {
+        setError(failed[0]?.error ?? "Restore failed.");
+      }
     } catch (err) {
-      setError(reportError("deleting the selected items", err));
+      setError(reportError("restoring the item", err));
     } finally {
-      setIsBulkBusy(false);
+      setTrashBusyId(null);
+    }
+  }
+
+  async function handlePurge(entry: DriveEntry): Promise<void> {
+    if (trashBusyId) {
+      return;
+    }
+
+    const shouldPurge = window.confirm(
+      `Permanently delete "${entry.name}"${entry.isFolder ? " and everything inside it" : ""}? This cannot be undone.`,
+    );
+
+    if (!shouldPurge) {
+      return;
+    }
+
+    setTrashBusyId(entry.id);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/drive/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "purge", ids: [entry.id] }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Delete forever failed.");
+      }
+
+      const failed = (data.failed ?? []) as { error?: string }[];
+
+      await refresh();
+
+      if (failed.length > 0) {
+        setError(failed[0]?.error ?? "Delete forever failed.");
+      }
+    } catch (err) {
+      setError(reportError("permanently deleting the item", err));
+    } finally {
+      setTrashBusyId(null);
     }
   }
 
@@ -574,7 +719,9 @@ export function DriveUi() {
     setMoveModalIds([entry.id]);
   }
 
-  const sortedItems = [...items].sort((a, b) => Number(b.isFolder) - Number(a.isFolder));
+  const sortedItems = view === "files"
+    ? [...items].sort((a, b) => Number(b.isFolder) - Number(a.isFolder))
+    : items;
   const allLoadedSelected =
     items.length > 0 && items.every((item) => selected.has(item.id));
 
@@ -583,6 +730,10 @@ export function DriveUi() {
       <section
         className="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200/70 bg-white/70 shadow-[0_4px_24px_-4px_rgba(100,130,180,0.18),0_0_0_1px_rgba(200,215,240,0.25)] backdrop-blur-sm"
         onDragOver={(event) => {
+          if (view !== "files") {
+            return;
+          }
+
           event.preventDefault();
           setIsDragging(true);
         }}
@@ -595,7 +746,7 @@ export function DriveUi() {
           event.preventDefault();
           setIsDragging(false);
 
-          if (event.dataTransfer.files.length > 0) {
+          if (view === "files" && event.dataTransfer.files.length > 0) {
             handleFiles(event.dataTransfer.files);
           }
         }}
@@ -606,7 +757,7 @@ export function DriveUi() {
               <FolderIcon className="size-4 text-[var(--brand)]" />
             </div>
             <p className="text-sm font-bold tracking-wide text-[var(--text-primary)]">
-              Drive Files
+              Storage
             </p>
           </div>
           <button
@@ -623,37 +774,67 @@ export function DriveUi() {
         </header>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/60 bg-white/40 px-6 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              setIsCreatingFolder(true);
-              setNewFolderName("");
-            }}
-            className={secondaryButtonClass}
-          >
-            <FolderIcon className="size-3.5" />
-            New folder
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={primaryButtonClass}
-          >
-            <UploadIcon />
-            Upload
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              if (event.target.files) {
-                handleFiles(event.target.files);
-              }
-              event.target.value = "";
-            }}
-          />
+          {view === "files" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingFolder(true);
+                  setNewFolderName("");
+                }}
+                className={secondaryButtonClass}
+              >
+                <FolderIcon className="size-3.5" />
+                New folder
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={primaryButtonClass}
+              >
+                <UploadIcon />
+                Upload
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  if (event.target.files) {
+                    handleFiles(event.target.files);
+                  }
+                  event.target.value = "";
+                }}
+              />
+            </>
+          ) : null}
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => switchView("files")}
+              aria-pressed={view === "files"}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                view === "files"
+                  ? "bg-[var(--brand)] text-white shadow-[0_1px_4px_-1px_rgba(53,95,159,0.45)]"
+                  : "text-[var(--text-secondary)] hover:text-[var(--brand)]"
+              }`}
+            >
+              Files
+            </button>
+            <button
+              type="button"
+              onClick={() => switchView("trash")}
+              aria-pressed={view === "trash"}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                view === "trash"
+                  ? "bg-[var(--brand)] text-white shadow-[0_1px_4px_-1px_rgba(53,95,159,0.45)]"
+                  : "text-[var(--text-secondary)] hover:text-[var(--brand)]"
+              }`}
+            >
+              Trash
+            </button>
+          </div>
           <div className="relative ml-auto min-w-[160px] flex-1 sm:max-w-[220px]">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-muted)]">
               <circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" />
@@ -661,42 +842,46 @@ export function DriveUi() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search this folder…"
+              placeholder={view === "trash" ? "Search the Trash…" : "Search this folder…"}
               className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:border-[var(--brand)] focus:shadow-[0_0_0_3px_rgba(53,95,159,0.1)]"
             />
           </div>
-          <select
-            value={orderBy}
-            onChange={(event) => setOrderBy(event.target.value as OrderBy)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[var(--text-secondary)] outline-none transition-all focus:border-[var(--brand)]"
-          >
-            <option value="name">Sort: Name</option>
-            <option value="modified">Sort: Modified</option>
-            <option value="size">Sort: Size</option>
-          </select>
+          {view === "files" ? (
+            <select
+              value={orderBy}
+              onChange={(event) => setOrderBy(event.target.value as OrderBy)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[var(--text-secondary)] outline-none transition-all focus:border-[var(--brand)]"
+            >
+              <option value="name">Sort: Name</option>
+              <option value="modified">Sort: Modified</option>
+              <option value="size">Sort: Size</option>
+            </select>
+          ) : null}
         </div>
 
-        <nav className="flex flex-wrap items-center gap-1 border-b border-slate-200/60 px-6 py-2.5 text-xs text-[var(--text-muted)]">
-          <button
-            type="button"
-            onClick={() => goToCrumb(-1)}
-            className={`font-medium transition-colors hover:text-[var(--brand)] ${pathStack.length === 0 ? "text-[var(--text-primary)]" : ""}`}
-          >
-            Home
-          </button>
-          {pathStack.map((segment, index) => (
-            <span key={segment.id} className="flex items-center gap-1">
-              <span className="text-[var(--text-muted)]/40">/</span>
-              <button
-                type="button"
-                onClick={() => goToCrumb(index)}
-                className={`max-w-[180px] truncate font-medium transition-colors hover:text-[var(--brand)] ${index === pathStack.length - 1 ? "text-[var(--text-primary)]" : ""}`}
-              >
-                {segment.name}
-              </button>
-            </span>
-          ))}
-        </nav>
+        {view === "files" ? (
+          <nav className="flex flex-wrap items-center gap-1 border-b border-slate-200/60 px-6 py-2.5 text-xs text-[var(--text-muted)]">
+            <button
+              type="button"
+              onClick={() => goToCrumb(-1)}
+              className={`font-medium transition-colors hover:text-[var(--brand)] ${pathStack.length === 0 ? "text-[var(--text-primary)]" : ""}`}
+            >
+              Home
+            </button>
+            {pathStack.map((segment, index) => (
+              <span key={segment.id} className="flex items-center gap-1">
+                <span className="text-[var(--text-muted)]/40">/</span>
+                <button
+                  type="button"
+                  onClick={() => goToCrumb(index)}
+                  className={`max-w-[180px] truncate font-medium transition-colors hover:text-[var(--brand)] ${index === pathStack.length - 1 ? "text-[var(--text-primary)]" : ""}`}
+                >
+                  {segment.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+        ) : null}
 
         {error ? (
           <div className="mx-6 mt-4 flex items-start justify-between gap-3 rounded-xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-xs text-[var(--danger-text)]">
@@ -802,24 +987,49 @@ export function DriveUi() {
             <span className="font-semibold text-[var(--brand)]">
               {selected.size} selected
             </span>
-            <button
-              type="button"
-              disabled={isBulkBusy}
-              onClick={() => setMoveModalIds(Array.from(selected))}
-              className={secondaryButtonClass}
-            >
-              <MoveIcon />
-              Move
-            </button>
-            <button
-              type="button"
-              disabled={isBulkBusy}
-              onClick={() => void handleBulkDelete()}
-              className={secondaryButtonClass}
-            >
-              <TrashIcon />
-              Delete
-            </button>
+            {view === "files" ? (
+              <>
+                <button
+                  type="button"
+                  disabled={isBulkBusy}
+                  onClick={() => setMoveModalIds(Array.from(selected))}
+                  className={secondaryButtonClass}
+                >
+                  <MoveIcon />
+                  Move
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkBusy}
+                  onClick={() => void handleBulkDelete()}
+                  className={secondaryButtonClass}
+                >
+                  <TrashIcon />
+                  Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={isBulkBusy}
+                  onClick={() => void handleBulkRestore()}
+                  className={secondaryButtonClass}
+                >
+                  <RestoreIcon />
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkBusy}
+                  onClick={() => void handleBulkPurge()}
+                  className={secondaryButtonClass}
+                >
+                  <TrashIcon />
+                  Delete forever
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={clearSelection}
@@ -842,11 +1052,17 @@ export function DriveUi() {
                 <FolderIcon className="size-6 text-[var(--text-muted)]/50" />
               </div>
               <p className="text-sm text-[var(--text-muted)]">
-                {activeSearch ? "No matching items in this folder." : "This folder is empty."}
+                {activeSearch
+                  ? "No matching items in this folder."
+                  : view === "trash"
+                    ? "The Trash is empty."
+                    : "This folder is empty."}
               </p>
-              <p className="text-xs text-[var(--text-muted)]/70">
-                Upload files or drop them here.
-              </p>
+              {view === "files" ? (
+                <p className="text-xs text-[var(--text-muted)]/70">
+                  Upload files or drop them here.
+                </p>
+              ) : null}
             </div>
           ) : (
             <div>
@@ -866,7 +1082,7 @@ export function DriveUi() {
               {sortedItems.map((entry) => {
                 const isSelected = selected.has(entry.id);
                 const isRenaming = renamingId === entry.id;
-                const native = isGoogleNative(entry);
+                const canOpen = view === "files" && entry.isFolder;
 
                 return (
                   <div
@@ -910,12 +1126,12 @@ export function DriveUi() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (entry.isFolder) {
+                          if (canOpen) {
                             openFolder(entry);
                           }
                         }}
-                        disabled={!entry.isFolder}
-                        className={`flex min-w-0 items-center gap-2 text-left ${entry.isFolder ? "cursor-pointer" : "cursor-default"}`}
+                        disabled={!canOpen}
+                        className={`flex min-w-0 items-center gap-2 text-left ${canOpen ? "cursor-pointer" : "cursor-default"}`}
                       >
                         <span
                           className={
@@ -929,55 +1145,80 @@ export function DriveUi() {
                         <span className="truncate font-medium text-[var(--text-primary)]">
                           {entry.name}
                         </span>
-                        {native ? (
-                          <span className="shrink-0 rounded-md bg-[var(--surface-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-                            Google file
-                          </span>
-                        ) : null}
                       </button>
                     )}
                     <span className="truncate text-[var(--text-muted)]">
                       {entry.isFolder ? "—" : formatSize(entry.size)}
                     </span>
                     <span className="hidden truncate text-[var(--text-muted)] sm:block">
-                      {entry.modifiedTime ? new Date(entry.modifiedTime).toLocaleString() : "—"}
+                      {view === "trash"
+                        ? entry.deletedAt
+                          ? new Date(entry.deletedAt).toLocaleString()
+                          : "—"
+                        : entry.modifiedTime
+                          ? new Date(entry.modifiedTime).toLocaleString()
+                          : "—"}
                     </span>
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => startRename(entry)}
-                        className={rowButtonClass}
-                        title="Rename"
-                      >
-                        <PencilIcon />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleSingleMove(entry)}
-                        className={rowButtonClass}
-                        title="Move to…"
-                      >
-                        <MoveIcon />
-                      </button>
-                      {entry.isFolder ? null : (
-                        <a
-                          href={`/api/drive/files/${entry.id}/download`}
-                          className={`${rowButtonClass} inline-flex ${native ? "pointer-events-none opacity-30" : ""}`}
-                          title={native ? "Google-native files cannot be downloaded in v1" : "Download"}
-                          aria-disabled={native}
-                        >
-                          <DownloadIcon />
-                        </a>
+                      {view === "trash" ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={trashBusyId === entry.id}
+                            onClick={() => void handleRestore(entry)}
+                            className={rowButtonClass}
+                            title="Restore"
+                          >
+                            {trashBusyId === entry.id ? <SpinnerIcon /> : <RestoreIcon />}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={trashBusyId === entry.id}
+                            onClick={() => void handlePurge(entry)}
+                            className={dangerButtonClass}
+                            title="Delete forever"
+                          >
+                            {trashBusyId === entry.id ? <SpinnerIcon /> : <TrashIcon />}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startRename(entry)}
+                            className={rowButtonClass}
+                            title="Rename"
+                          >
+                            <PencilIcon />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleSingleMove(entry)}
+                            className={rowButtonClass}
+                            title="Move to…"
+                          >
+                            <MoveIcon />
+                          </button>
+                          {entry.isFolder ? null : (
+                            <a
+                              href={`/api/drive/files/${entry.id}/download`}
+                              className={`${rowButtonClass} inline-flex`}
+                              title="Download"
+                            >
+                              <DownloadIcon />
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            disabled={isDeletingId === entry.id}
+                            onClick={() => void handleDelete(entry)}
+                            className={dangerButtonClass}
+                            title="Move to trash"
+                          >
+                            {isDeletingId === entry.id ? <SpinnerIcon /> : <TrashIcon />}
+                          </button>
+                        </>
                       )}
-                      <button
-                        type="button"
-                        disabled={isDeletingId === entry.id}
-                        onClick={() => void handleDelete(entry)}
-                        className={dangerButtonClass}
-                        title="Move to trash"
-                      >
-                        {isDeletingId === entry.id ? <SpinnerIcon /> : <TrashIcon />}
-                      </button>
                     </div>
                   </div>
                 );

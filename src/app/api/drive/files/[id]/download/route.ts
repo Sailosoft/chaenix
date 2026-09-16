@@ -1,7 +1,8 @@
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
-import { downloadFile, gdriveErrorResponse } from "@/lib/gdrive";
+import { DRIVE_ID_SCHEMA } from "@/lib/drive-api";
+import { downloadFile, driveErrorResponse } from "@/lib/drive-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,9 +17,14 @@ export async function GET(_req: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
+  const parsedId = DRIVE_ID_SCHEMA.safeParse(id);
+
+  if (!parsedId.success) {
+    return Response.json({ error: "Invalid id." }, { status: 400 });
+  }
 
   try {
-    const { entry, stream } = await downloadFile(id);
+    const { entry, stream, contentLength } = await downloadFile(parsedId.data);
 
     const headers = new Headers({
       "Content-Type": entry.mimeType,
@@ -26,12 +32,12 @@ export async function GET(_req: Request, { params }: RouteParams) {
       "Cache-Control": "no-store",
     });
 
-    if (entry.size) {
-      headers.set("Content-Length", entry.size);
+    if (contentLength !== undefined) {
+      headers.set("Content-Length", String(contentLength));
     }
 
     return new Response(stream, { headers });
   } catch (error) {
-    return gdriveErrorResponse(error);
+    return driveErrorResponse(error);
   }
 }

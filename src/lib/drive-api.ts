@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { authOptions } from "@/lib/auth";
 
-export const DRIVE_ID_SCHEMA = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "Invalid id.");
+export const DRIVE_ID_SCHEMA = z.uuid();
 
 export async function isAdminSession(): Promise<boolean> {
   const session = await getServerSession(authOptions);

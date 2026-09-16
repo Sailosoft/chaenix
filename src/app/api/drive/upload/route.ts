@@ -1,11 +1,9 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import { DRIVE_ID_SCHEMA, isAdminSession, unauthorizedResponse } from "@/lib/drive-api";
-import {
-  gdriveErrorResponse,
-  startResumableUpload,
-  uploadStreamToUrl,
-} from "@/lib/gdrive";
+import { DriveInputError, driveErrorResponse, uploadFile } from "@/lib/drive-store";
 
 export const runtime = "nodejs";
 
@@ -31,12 +29,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const uploadUrl = await startResumableUpload(name.data, mimeType.data, parentId.data);
+    let body: ArrayBuffer;
 
-    await uploadStreamToUrl(uploadUrl, req.body, mimeType.data);
+    try {
+      body = await req.arrayBuffer();
+    } catch (err) {
+      console.error("[drive] Failed to read upload request body:", err);
+      throw new DriveInputError("Could not read the file being uploaded.");
+    }
 
-    return Response.json({ ok: true });
+    const entry = await uploadFile({
+      id: randomUUID(),
+      name: name.data,
+      mimeType: mimeType.data,
+      parentId: parentId.data,
+      body,
+    });
+
+    return Response.json(entry, { status: 201 });
   } catch (error) {
-    return gdriveErrorResponse(error);
+    return driveErrorResponse(error);
   }
 }

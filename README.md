@@ -48,17 +48,18 @@ AI_BASE_URL=http://127.0.0.1:11434/v1
 AI_API_KEY=ollama
 AI_MODEL=gemma4:31b-cloud
 
-# Google Drive file manager (/admin/drive) — service account auth
-GDRIVE_CLIENT_EMAIL=drive-manager@your-project.iam.gserviceaccount.com
-GDRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-GDRIVE_FOLDER_ID=your-shared-folder-id
+# Supabase Storage file manager (/admin/drive) — server-side service role
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-or-sb_secret-key>
+SUPABASE_DB_SCHEMA=chaenix
+SUPABASE_STORAGE_BUCKET=drive
 ```
 
-### Google Drive setup (one-time)
+### Supabase Storage setup (one-time)
 
-1. In Google Cloud Console, create a service account and enable the **Google Drive API** for the project. If you see "Google Drive API has not been used in project... or it is disabled", visit `https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=<YOUR_PROJECT_ID>` and click **Enable**. Wait a few minutes for propagation before retrying.
-2. Under the service account, create a key (JSON) and copy `client_email` and `private_key` into the env vars above. Keep the `\n` escape sequences in the private key as literal `\n` text.
-3. In Google Drive, share your target folder with the service account email as **Editor**.
-4. Copy the folder ID from the folder URL (`https://drive.google.com/drive/folders/<FOLDER_ID>`) into `GDRIVE_FOLDER_ID`.
+1. Apply `db/sql/0001_chaenix_drive.sql` by hand in the shared project's SQL editor. This repo is **not** linked to that project: never run `supabase link` or `supabase db push`. Check that the `chaenix` schema is free before running it.
+2. Expose the `chaenix` schema to PostgREST: **Project Settings → API → Exposed schemas**.
+3. **Storage → New bucket** → name `drive`, **public = off**. No storage policies are needed; only the server-side service-role client touches it. Raise the bucket's file size limit if the proxied upload path needs more than the project default.
+4. Set the env vars above. `SUPABASE_SERVICE_ROLE_KEY` accepts either the legacy `service_role` JWT or the newer `sb_secret_…` key.
 
-Notes (v1): uploads go directly from the browser to Google (resumable session handoff), so they work around serverless body-size limits. Downloads are proxied and limited by the function `maxDuration` — large downloads may time out on Vercel. Google-native files (Docs/Sheets/Slides) cannot be downloaded. On Vercel, make sure `NEXTAUTH_URL` and `NEXTAUTH_SECRET` are set so the admin session cookie works on preview/prod domains.
+Notes (v1): uploads are proxied through the route handler, so they are bounded by the host body limit (~4.5 MB on Vercel). Downloads are streamed server-side through a short-lived signed URL. Deletes are soft deletes — items move to the Trash view, where they can be restored or permanently deleted. On Vercel, make sure `NEXTAUTH_URL` and `NEXTAUTH_SECRET` are set so the admin session cookie works on preview/prod domains.
