@@ -71,7 +71,7 @@ const adminNavItems: AdminNavItem[] = [
   },
   {
     href: "/admin/drive",
-    label: "Drive",
+    label: "Storage",
     icon: (
       <svg
         className="h-5 w-5"

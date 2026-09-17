@@ -1,0 +1,3 @@
+export const DRIVE_QUOTA_MB = 100;
+
+export const DRIVE_QUOTA_BYTES = DRIVE_QUOTA_MB * 1024 * 1024;

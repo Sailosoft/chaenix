@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { DRIVE_ID_SCHEMA, isAdminSession, parseJsonBody, unauthorizedResponse } from "@/lib/drive-api";
-import { createFolder, gdriveErrorResponse } from "@/lib/gdrive";
+import { createFolder, driveErrorResponse } from "@/lib/drive-store";
 
 export const runtime = "nodejs";
 
@@ -26,6 +26,6 @@ export async function POST(req: Request) {
 
     return Response.json(entry, { status: 201 });
   } catch (error) {
-    return gdriveErrorResponse(error);
+    return driveErrorResponse(error);
   }
 }
