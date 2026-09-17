@@ -48,9 +48,9 @@ AI_BASE_URL=http://127.0.0.1:11434/v1
 AI_API_KEY=ollama
 AI_MODEL=gemma4:31b-cloud
 
-# Supabase Storage file manager (/admin/drive) — server-side service role
+# Supabase Storage file manager (/admin/drive) — server-side secret key
 SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-or-sb_secret-key>
+SUPABASE_SECRET_KEY=sb_secret_...
 SUPABASE_DB_SCHEMA=chaenix
 SUPABASE_STORAGE_BUCKET=drive
 ```
@@ -59,8 +59,8 @@ SUPABASE_STORAGE_BUCKET=drive
 
 1. Apply `db/sql/0001_chaenix_drive.sql` by hand in the shared project's SQL editor. This repo is **not** linked to that project: never run `supabase link` or `supabase db push`. Check that the `chaenix` schema is free before running it.
 2. Expose the `chaenix` schema to PostgREST: **Project Settings → API → Exposed schemas**.
-3. **Storage → New bucket** → name `drive`, **public = off**. No storage policies are needed; only the server-side service-role client touches it. Raise the bucket's file size limit if the proxied upload path needs more than the project default.
-4. Set the env vars above. `SUPABASE_SERVICE_ROLE_KEY` accepts either the legacy `service_role` JWT or the newer `sb_secret_…` key.
+3. **Storage → New bucket** → name `drive`, **public = off**. No storage policies are needed; only the server-side service-key client touches it. Raise the bucket's file size limit if the proxied upload path needs more than the project default.
+4. In **Settings → API Keys**, create/select the **Publishable and secret API keys** tab and copy the secret key (`sb_secret_…`) into `SUPABASE_SECRET_KEY`. Do not use the legacy `service_role` JWT or the publishable key.
 
 Step-by-step guides, including where to find each value in the Supabase dashboard:
 [docs/Guides/supabase-dashboard-setup.md](docs/Guides/supabase-dashboard-setup.md) and

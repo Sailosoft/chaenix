@@ -72,44 +72,108 @@ allow-list.
 This is the equivalent of adding `chaenix` to `PGRST_DB_SCHEMAS` on a
 self-hosted instance. No dashboard restart is needed; the API picks it up.
 
+The migration grants the schema to the built-in `service_role` Postgres role.
+New-format secret keys (`sb_secret_…`) assume that same role, so the grants do
+not change when you migrate off the legacy `service_role` JWT.
+
 ## 4. Create the private bucket
 
 1. Open **Storage** in the left sidebar.
 2. **New bucket** → name it `drive` (must match `SUPABASE_STORAGE_BUCKET`).
-3. Leave **Public bucket = off**. Only the server-side service-role client
+3. Leave **Public bucket = off**. Only the server-side secret-key client
    touches it, so no Storage policies are required.
 4. Open the bucket's configuration and check its **file size limit**. The app
    proxies uploads through the route handler, so an upload can also fail on the
    host's body limit (~4.5 MB on Vercel). Raise the bucket limit if you intend
    to allow larger files on a self-hosted Node server.
 
-## 5. Set the environment variables
+## 5. Generate the secret API key
 
-Follow [supabase-env-vars.md](./supabase-env-vars.md). The short version:
+The app authenticates to Supabase with a **secret key** (`sb_secret_…`). Generate
+one before writing `.env`.
+
+### Dashboard (recommended)
+
+1. Open **Settings → API Keys**.
+2. Select the **Publishable and secret API keys** tab.
+3. If the tab shows a **Create new API keys** button, the project is still on
+   legacy keys only. Click it. This is safe: it adds a publishable key and a
+   secret key **alongside** the existing `anon` and `service_role` keys, which
+   keep working until you deactivate them. If the keys already exist, use them.
+4. Reveal and copy the **secret key**. It starts with `sb_secret_`.
+5. Optional: create an additional secret key from the same tab and give it a
+   name, for example `chaenix-drive`. Keeping one key per backend component
+   means a leak forces only that one rotation. The app stores only the value, so
+   any key name works.
+
+The **publishable key** (`sb_publishable_…`) is listed on the same tab. This app
+does not use it: it runs entirely on the server and needs the secret key. Do not
+use the legacy `anon`/`service_role` keys either — they are deprecated (Supabase
+turns them off at the end of 2026).
+
+Record which key name the value came from. There is no need to write the key
+itself anywhere except `.env`.
+
+### CLI alternative (read keys)
+
+Read the project's keys from a terminal instead of the dashboard:
+
+```bash
+supabase login
+supabase projects list
+supabase projects api-keys --project-ref <project-ref>
+```
+
+### Management API alternative (read keys)
+
+For scripted provisioning, read keys with a personal access token (requires the
+`secrets:read` scope, or the `api_gateway_keys_read` permission on a fine-grained
+token):
+
+```bash
+export PROJECT_REF="<project-ref>"
+export SUPABASE_ACCESS_TOKEN="<personal-access-token>"
+
+curl -sS -X GET "https://api.supabase.com/v1/projects/$PROJECT_REF/api-keys?reveal=true" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+`reveal=true` puts the key values in the response, so write them straight into
+your secret store rather than printing them, or they will land in your CI logs.
+
+Then follow [supabase-env-vars.md](./supabase-env-vars.md) to place the value in
+`.env`.
+
+## 6. Set the environment variables
+
+The four values, with the secret key from step 5:
 
 ```dotenv
 SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-or-sb_secret-key>
+SUPABASE_SECRET_KEY=sb_secret_...
 SUPABASE_DB_SCHEMA=chaenix
 SUPABASE_STORAGE_BUCKET=drive
 ```
 
-Restart the dev/prod server after editing `.env`.
+`SUPABASE_URL` comes from the **Connect** dialog or **Project Settings → Data
+API → Project URL**; `SUPABASE_DB_SCHEMA` and `SUPABASE_STORAGE_BUCKET` are the
+app-chosen names and must match what you created above. Restart the dev/prod
+server after editing `.env`.
 
-## 6. Verify
+## 7. Verify
 
-Service-role probe — expect **HTTP 200** with `[]`:
+Secret-key probe — expect **HTTP 200** with `[]`. Send the key on the `apikey`
+header only; it is not a JWT:
 
 ```bash
 curl -sS -i "$SUPABASE_URL/rest/v1/drive_entries?select=id&limit=1" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SECRET_KEY" \
   -H "Accept-Profile: chaenix"
 ```
 
-The same request with the `anon` / publishable key **must be rejected**. If the
-anon key can read the table, the grants or the exposure are wrong — fix that
-before using the feature.
+The same request with the publishable key (`sb_publishable_…`) or the legacy
+`anon` key **must be rejected**. If a public key can read the table, the grants
+or the exposure are wrong — fix that before using the feature.
 
 Then sign in as admin and open `/admin/drive`. A quick end-to-end check:
 
@@ -121,7 +185,7 @@ Then sign in as admin and open `/admin/drive`. A quick end-to-end check:
 5. **Delete forever** a folder that contains trashed children, then confirm in
    **Storage → drive → objects/** that every object for that subtree is gone.
 
-## 7. Database spot-checks
+## 8. Database spot-checks
 
 Run these in the SQL Editor to confirm data lands in the right place:
 
@@ -140,14 +204,16 @@ order by deleted_at desc
 limit 20;
 ```
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | `PGRST106` — schema not in the allow-list | Re-check step 3 (**Exposed schemas**). |
 | `PGRST205` / `42P01` — table not found | Re-run the migration (step 2). |
 | `PGRST202` — function not found | The function grants or the migration are missing; re-run step 2. |
-| Anon key can read `drive_entries` | Grants are too broad. Only `service_role` should have access to `chaenix`. |
+| `Invalid JWT` | The secret key was sent on `Authorization: Bearer` in hand-written HTTP. Send it on `apikey` only. |
+| Public key can read `drive_entries` | Grants are too broad. Only `service_role` (the role a secret key assumes) should have access to `chaenix`. |
+| Permission error mentioning `anon` | The publishable/`anon` key was used instead of the `sb_secret_…` key. |
 | `Bucket not found` | Bucket name mismatch, or the bucket was not created (step 4). |
 | Uploads fail around a few MB | Host body limit and/or the bucket file size limit (step 4). |
 

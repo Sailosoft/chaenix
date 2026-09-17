@@ -633,6 +633,13 @@ export async function downloadFile(
   return { entry: toEntry(row), stream: res.body, contentLength };
 }
 
+export async function readDriveUsage(): Promise<number> {
+  const data = await callRpc("drive_usage", {}, "Could not compute storage usage.");
+  const used = Number(data);
+
+  return Number.isFinite(used) && used > 0 ? used : 0;
+}
+
 export function driveErrorResponse(error: unknown): Response {
   if (error instanceof DriveError) {
     return Response.json({ error: error.message }, { status: error.status });

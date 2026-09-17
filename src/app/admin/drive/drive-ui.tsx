@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useRef, useState } from "react";
+
+const ITEM_DRAG_MIME = "application/x-chaenix-drive-ids";
+
+function isFileDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer.types).includes("Files");
+}
+
+function isItemDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer.types).includes(ITEM_DRAG_MIME);
+}
 
 type DriveEntry = {
   id: string;
@@ -189,6 +199,8 @@ export function DriveUi() {
   const [moveModalIds, setMoveModalIds] = useState<string[] | null>(null);
   const [view, setView] = useState<DriveView>("files");
   const [trashBusyId, setTrashBusyId] = useState<string | null>(null);
+  const [draggedIds, setDraggedIds] = useState<string[]>([]);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -515,14 +527,14 @@ export function DriveUi() {
     }
   }
 
-  function handleFiles(fileList: FileList | File[]): void {
+  function handleFiles(fileList: FileList | File[], parentIdOverride?: string | null): void {
     const files = Array.from(fileList);
 
     if (files.length === 0) {
       return;
     }
 
-    const parentId = currentFolderId;
+    const parentId = parentIdOverride !== undefined ? parentIdOverride : currentFolderId;
     const created: UploadState[] = files.map((file, index) => ({
       key: `${Date.now()}-${index}-${file.name}`,
       name: file.name,
@@ -719,6 +731,131 @@ export function DriveUi() {
     setMoveModalIds([entry.id]);
   }
 
+  function handleRowDragStart(entry: DriveEntry, event: DragEvent<HTMLDivElement>): void {
+    if (view !== "files" || entry.deletedAt) {
+      event.preventDefault();
+      return;
+    }
+
+    const ids = selected.has(entry.id) ? Array.from(selected) : [entry.id];
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(ITEM_DRAG_MIME, JSON.stringify(ids));
+    setDraggedIds(ids);
+  }
+
+  function handleRowDragEnd(): void {
+    setDraggedIds([]);
+    setDropTargetId(null);
+    setIsDragging(false);
+  }
+
+  function handleFolderDragOver(entry: DriveEntry, event: DragEvent<HTMLDivElement>): void {
+    if (view !== "files" || !entry.isFolder) {
+      return;
+    }
+
+    if (!isFileDrag(event) && !isItemDrag(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = isItemDrag(event) ? "move" : "copy";
+
+    if (draggedIds.includes(entry.id)) {
+      setDropTargetId(null);
+      return;
+    }
+
+    if (dropTargetId !== entry.id) {
+      setDropTargetId(entry.id);
+    }
+  }
+
+  function handleFolderDragLeave(entry: DriveEntry, event: DragEvent<HTMLDivElement>): void {
+    if (dropTargetId !== entry.id) {
+      return;
+    }
+
+    const next = event.relatedTarget as Node | null;
+
+    if (next && event.currentTarget.contains(next)) {
+      return;
+    }
+
+    setDropTargetId(null);
+  }
+
+  async function moveIntoFolder(ids: string[], targetId: string): Promise<void> {
+    const movable = ids.filter((id) => id !== targetId);
+
+    if (movable.length === 0) {
+      return;
+    }
+
+    setIsBulkBusy(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/drive/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move", ids: movable, targetId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Move failed.");
+      }
+
+      const failed = (data.failed ?? []) as { error?: string }[];
+
+      clearSelection();
+      await refresh();
+
+      if (failed.length > 0) {
+        setError(
+          `${failed.length} item(s) failed to move: ${failed[0]?.error ?? "unknown error"}`,
+        );
+      }
+    } catch (err) {
+      setError(reportError("moving the selected items", err));
+    } finally {
+      setIsBulkBusy(false);
+    }
+  }
+
+  function handleFolderDrop(entry: DriveEntry, event: DragEvent<HTMLDivElement>): void {
+    if (view !== "files" || !entry.isFolder) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setDropTargetId(null);
+    setDraggedIds([]);
+    setIsDragging(false);
+
+    const raw = event.dataTransfer.getData(ITEM_DRAG_MIME);
+
+    if (raw) {
+      try {
+        const ids = JSON.parse(raw) as unknown;
+
+        if (Array.isArray(ids) && ids.every((id) => typeof id === "string")) {
+          void moveIntoFolder(ids as string[], entry.id);
+          return;
+        }
+      } catch {
+        // fall through to file handling
+      }
+    }
+
+    if (event.dataTransfer.files.length > 0) {
+      handleFiles(event.dataTransfer.files, entry.id);
+    }
+  }
+
   const sortedItems = view === "files"
     ? [...items].sort((a, b) => Number(b.isFolder) - Number(a.isFolder))
     : items;
@@ -734,8 +871,15 @@ export function DriveUi() {
             return;
           }
 
+          if (!isFileDrag(event) && !isItemDrag(event)) {
+            return;
+          }
+
           event.preventDefault();
-          setIsDragging(true);
+
+          if (isFileDrag(event)) {
+            setIsDragging(true);
+          }
         }}
         onDragLeave={(event) => {
           if (event.currentTarget === event.target) {
@@ -1083,11 +1227,20 @@ export function DriveUi() {
                 const isSelected = selected.has(entry.id);
                 const isRenaming = renamingId === entry.id;
                 const canOpen = view === "files" && entry.isFolder;
+                const isDropTarget = dropTargetId === entry.id;
+                const isDragged = draggedIds.includes(entry.id);
+                const canDrag = view === "files";
 
                 return (
                   <div
                     key={entry.id}
-                    className={`grid grid-cols-[28px_minmax(0,1fr)_80px_150px_120px] items-center gap-2 rounded-xl px-2 py-2.5 text-xs transition-colors hover:bg-[var(--surface-soft)]/60 ${isSelected ? "bg-[var(--brand-soft)]/40" : ""}`}
+                    draggable={canDrag && !isRenaming}
+                    onDragStart={(event) => handleRowDragStart(entry, event)}
+                    onDragEnd={handleRowDragEnd}
+                    onDragOver={(event) => handleFolderDragOver(entry, event)}
+                    onDragLeave={(event) => handleFolderDragLeave(entry, event)}
+                    onDrop={(event) => handleFolderDrop(entry, event)}
+                    className={`grid grid-cols-[28px_minmax(0,1fr)_80px_150px_120px] items-center gap-2 rounded-xl px-2 py-2.5 text-xs transition-colors hover:bg-[var(--surface-soft)]/60 ${isSelected ? "bg-[var(--brand-soft)]/40" : ""} ${isDropTarget ? "bg-[var(--brand-soft)]/60 ring-1 ring-[var(--brand)]" : ""} ${isDragged ? "opacity-50" : ""}`}
                   >
                     <input
                       type="checkbox"
@@ -1240,7 +1393,7 @@ export function DriveUi() {
           )}
         </div>
 
-        {isDragging ? (
+        {isDragging && !dropTargetId ? (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--brand-soft)]/60 backdrop-blur-[1px]">
             <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-[var(--brand)] bg-white/90 px-8 py-6 text-[var(--brand)]">
               <UploadIcon className="size-5" />

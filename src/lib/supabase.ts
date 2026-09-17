@@ -6,17 +6,17 @@ import { DriveConfigError } from "@/lib/drive-errors";
 
 export type SupabaseEnv = {
   url: string;
-  serviceRoleKey: string;
+  secretKey: string;
   schema: string;
   bucket: string;
 };
 
 export function readSupabaseEnv(): SupabaseEnv {
   const url = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
 
-  if (!url || !serviceRoleKey) {
-    const missing = [!url ? "SUPABASE_URL" : null, !serviceRoleKey ? "SUPABASE_SERVICE_ROLE_KEY" : null]
+  if (!url || !secretKey) {
+    const missing = [!url ? "SUPABASE_URL" : null, !secretKey ? "SUPABASE_SECRET_KEY" : null]
       .filter((value): value is string => value !== null)
       .join(", ");
 
@@ -25,16 +25,16 @@ export function readSupabaseEnv(): SupabaseEnv {
 
   return {
     url,
-    serviceRoleKey,
+    secretKey,
     schema: process.env.SUPABASE_DB_SCHEMA?.trim() || "chaenix",
     bucket: process.env.SUPABASE_STORAGE_BUCKET?.trim() || "drive",
   };
 }
 
 function createAdminClient() {
-  const { url, serviceRoleKey, schema } = readSupabaseEnv();
+  const { url, secretKey, schema } = readSupabaseEnv();
 
-  return createClient(url, serviceRoleKey, {
+  return createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema },
   });

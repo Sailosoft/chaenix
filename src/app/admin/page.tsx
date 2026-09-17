@@ -6,6 +6,7 @@ import { DM_Sans, Inter } from "next/font/google";
 import { authOptions } from "@/lib/auth";
 
 import { RecentChats } from "./recent-chats";
+import { StorageUsage } from "./storage-usage";
 
 const headingFont = DM_Sans({
   subsets: ["latin"],
@@ -86,6 +87,13 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="space-y-4">
+          <div className="rounded-3xl border border-neutral-200/60 bg-white p-6 shadow-[0_2px_40px_-4px_rgba(0,0,0,0.06)]">
+            <h2 className="text-base font-semibold text-neutral-900 [font-family:var(--font-heading)]">
+              Storage
+            </h2>
+            <StorageUsage />
+          </div>
+
           <div className="rounded-3xl border border-neutral-200/60 bg-white p-6 shadow-[0_2px_40px_-4px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-3.5">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50">
