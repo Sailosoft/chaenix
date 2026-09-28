@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import { marked } from "marked";
 import Link from "next/link";
 import { Inter } from "next/font/google";
@@ -13,20 +13,39 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ClipboardEvent,
+  type DragEvent,
 } from "react";
 import { Virtuoso, type Components, type VirtuosoHandle } from "react-virtuoso";
 
+import {
+  DEFAULT_MODEL_ID,
+  type ChatModel,
+  type CostTier,
+} from "@/lib/ai/catalog";
+import { loadDefaultModelId, saveDefaultModelId } from "@/lib/ai/settings";
 import {
   getLocalChat,
   loadLocalChatSnapshot,
   renameLocalChat,
   saveLocalChatSnapshot,
+  setLocalChatModel,
 } from "@/lib/chat-client-store";
 
 type ChatUiProps = {
   id: string;
   initialMessages: UIMessage[];
+  models: ChatModel[];
 };
+
+const MAX_IMAGES_PER_MESSAGE = 4;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const ALLOWED_IMAGE_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+];
 
 const uiFont = Inter({
   subsets: ["latin"],
@@ -49,6 +68,24 @@ function parseMarkdown(text: string): string {
     .replaceAll("'", "&#39;");
 
   return marked.parse(escapedText, { async: false }) as string;
+}
+
+function createLocalId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("File read failed"));
+    reader.readAsDataURL(file);
+  });
 }
 
 const assistantMarkdownClasses =
@@ -248,6 +285,231 @@ function PlusIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function ImageIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
+  );
+}
+
+const costTierStyles: Record<CostTier, string> = {
+  low: "bg-emerald-50 text-emerald-600 ring-emerald-200/60",
+  mid: "bg-amber-50 text-amber-600 ring-amber-200/60",
+  high: "bg-rose-50 text-rose-600 ring-rose-200/60",
+};
+
+const costTierLabels: Record<CostTier, string> = {
+  low: "Low",
+  mid: "Mid",
+  high: "High",
+};
+
+function CostBadge({ cost }: { cost: CostTier }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${costTierStyles[cost]}`}
+    >
+      {costTierLabels[cost]}
+    </span>
+  );
+}
+
+function StarIcon({
+  className,
+  filled,
+}: {
+  className?: string;
+  filled?: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z" />
+    </svg>
+  );
+}
+
+type ModelSelectorProps = {
+  models: ChatModel[];
+  selectedId: string | null;
+  defaultId: string | null;
+  onSelect: (modelId: string) => void;
+  onSetDefault: (modelId: string) => void;
+  disabled?: boolean;
+};
+
+function ModelSelector({
+  models,
+  selectedId,
+  defaultId,
+  onSelect,
+  onSetDefault,
+  disabled,
+}: ModelSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [isOpen]);
+
+  const selected = models.find((model) => model.id === selectedId) ?? null;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {selected ? (
+          <>
+            <span className="max-w-[120px] truncate font-semibold text-[var(--text-primary)]">
+              {selected.name}
+            </span>
+            {selected.id === defaultId ? (
+              <StarIcon className="h-3 w-3 text-amber-400" filled />
+            ) : null}
+            <CostBadge cost={selected.cost} />
+            {selected.imageSupport ? (
+              <ImageIcon className="h-3.5 w-3.5 text-[var(--brand)]" />
+            ) : null}
+          </>
+        ) : (
+          <span className="text-[var(--text-muted)]">Model</span>
+        )}
+        <ChevronDownIcon className="h-3 w-3 text-[var(--text-muted)]" />
+      </button>
+
+      {isOpen ? (
+        <div
+          role="listbox"
+          className="absolute bottom-full left-0 z-50 mb-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[var(--border)]/50 bg-white/95 p-1.5 shadow-xl shadow-black/10 backdrop-blur-xl"
+        >
+          {models.map((model) => {
+            const isSelected = model.id === selectedId;
+            const isDefault = model.id === defaultId;
+
+            return (
+              <div
+                key={model.id}
+                role="option"
+                aria-selected={isSelected}
+                className={`flex w-full items-center gap-1 rounded-xl pr-1 transition-colors duration-150 ${
+                  isSelected
+                    ? "bg-[var(--brand-soft)]"
+                    : "hover:bg-[var(--surface-muted)]"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(model.id);
+                    setIsOpen(false);
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                        {model.name}
+                      </span>
+                      {isSelected ? (
+                        <CheckIcon className="h-3 w-3 text-[var(--brand)]" />
+                      ) : null}
+                    </span>
+                  </span>
+
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <CostBadge cost={model.cost} />
+                    {model.imageSupport ? (
+                      <ImageIcon
+                        className="h-3.5 w-3.5 text-[var(--brand)]"
+                        aria-label="Supports images"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-medium text-[var(--text-muted)]">
+                        Text only
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onSetDefault(model.id)}
+                  aria-pressed={isDefault}
+                  aria-label={`Set ${model.name} as default model`}
+                  title={isDefault ? "Default model" : "Set as default"}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all duration-200 active:scale-90 ${
+                    isDefault
+                      ? "bg-amber-50 text-amber-400"
+                      : "text-[var(--text-muted)]/60 hover:bg-amber-50 hover:text-amber-400"
+                  }`}
+                >
+                  <StarIcon className="h-3.5 w-3.5" filled={isDefault} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ThinkingBubble() {
   return (
     <div className="chat-message-enter px-3 pb-3 sm:px-4 sm:pb-4">
@@ -289,6 +551,14 @@ function EmptyState() {
 
 type MessageAttachment = { id: string; name: string; content: string };
 
+type ImageAttachment = {
+  id: string;
+  name: string;
+  mediaType: string;
+  url: string;
+  size: number;
+};
+
 type MessageRowProps = {
   message: UIMessage;
   animate: boolean;
@@ -296,7 +566,12 @@ type MessageRowProps = {
   isThinking: boolean;
 };
 
-function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowProps) {
+function MessageRow({
+  message,
+  animate,
+  isStreaming,
+  isThinking,
+}: MessageRowProps) {
   const isUser = message.role === "user";
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -400,9 +675,7 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
     <div
       className={`px-3 pb-3 sm:px-4 sm:pb-4 ${animate ? "chat-message-enter" : ""}`}
     >
-      <div
-        className={`flex items-start ${isUser ? "flex-row-reverse" : ""}`}
-      >
+      <div className={`flex items-start ${isUser ? "flex-row-reverse" : ""}`}>
         <div
           className={`flex min-w-0 flex-col gap-2 ${
             isUser ? "w-full items-end" : "max-w-full flex-1 items-start"
@@ -433,6 +706,22 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
 
             <div ref={contentRef} className="w-full min-w-0 max-w-full">
               {message.parts.map((part, index) => {
+                if (part.type === "file") {
+                  if (!part.mediaType.startsWith("image/")) {
+                    return null;
+                  }
+
+                  return (
+                    // eslint-disable-next-line @next/next/no-img-element -- data-URL attachment preview
+                    <img
+                      key={`${message.id}-${index}`}
+                      src={part.url}
+                      alt={part.filename ?? "Attached image"}
+                      className="mb-2 max-h-64 w-auto max-w-full rounded-xl border border-black/5 object-contain"
+                    />
+                  );
+                }
+
                 if (part.type !== "text") {
                   return null;
                 }
@@ -455,7 +744,10 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
 
                 if (!partText.trim() && (isThinking || isStreaming)) {
                   return (
-                    <span key={`${message.id}-${index}`} className="flex items-center gap-2 py-1">
+                    <span
+                      key={`${message.id}-${index}`}
+                      className="flex items-center gap-2 py-1"
+                    >
                       {[0, 1, 2].map((dot) => (
                         <span
                           key={dot}
@@ -471,7 +763,9 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
                   <div
                     key={`${message.id}-${index}`}
                     className={assistantMarkdownClasses}
-                    dangerouslySetInnerHTML={{ __html: parseMarkdown(partText) }}
+                    dangerouslySetInnerHTML={{
+                      __html: parseMarkdown(partText),
+                    }}
                   />
                 );
               })}
@@ -518,7 +812,7 @@ function MessageRow({ message, animate, isStreaming, isThinking }: MessageRowPro
   );
 }
 
-export function ChatUi({ id, initialMessages }: ChatUiProps) {
+export function ChatUi({ id, initialMessages, models }: ChatUiProps) {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [localCacheReadyId, setLocalCacheReadyId] = useState<string | null>(
@@ -527,6 +821,14 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   const [chatTitle, setChatTitle] = useState("Untitled Chat");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [modelId, setModelId] = useState<string | null>(null);
+  const [defaultModelId, setDefaultModelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>(
+    [],
+  );
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragDepthRef = useRef(0);
   const hasLoadedLocalCache = useRef(false);
   const skipEntryAnimationIds = useRef(
     new Set(initialMessages.map((message) => message.id)),
@@ -561,6 +863,10 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             return { ...message, metadata: undefined };
           }
 
+          const fileParts = message.parts.filter(
+            (part): part is FileUIPart => part.type === "file",
+          );
+
           const fileContentText = userAttachments
             .map(
               (attachment) =>
@@ -569,9 +875,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             .join("\n\n");
 
           const existingText = message.parts
-            .map((part) =>
-              part.type === "text" ? (part as { text: string }).text : "",
-            )
+            .map((part) => (part.type === "text" ? part.text : ""))
             .join("");
 
           const combinedText = existingText
@@ -580,7 +884,10 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
 
           return {
             ...message,
-            parts: [{ type: "text", text: combinedText }],
+            parts: [
+              { type: "text" as const, text: combinedText },
+              ...fileParts,
+            ],
             metadata: undefined,
           };
         });
@@ -601,6 +908,7 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
         return {
           body: {
             id: chatId,
+            model: modelId ?? DEFAULT_MODEL_ID,
             messages: messagesToSend,
           },
         };
@@ -686,9 +994,78 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     };
   }, [id]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    void (async () => {
+      const record = await getLocalChat(id);
+      const fallbackId = loadDefaultModelId();
+
+      if (!isActive) {
+        return;
+      }
+
+      const stored = record?.modelId;
+      const candidate =
+        stored && models.some((model) => model.id === stored)
+          ? stored
+          : models.some((model) => model.id === fallbackId)
+            ? fallbackId
+            : DEFAULT_MODEL_ID;
+
+      setDefaultModelId(
+        models.some((model) => model.id === fallbackId)
+          ? fallbackId
+          : DEFAULT_MODEL_ID,
+      );
+      setModelId(candidate);
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id, models]);
+
+  const selectedModel = useMemo<ChatModel | null>(() => {
+    const activeId = modelId ?? DEFAULT_MODEL_ID;
+    return (
+      models.find((model) => model.id === activeId) ??
+      models.find((model) => model.id === DEFAULT_MODEL_ID) ??
+      models[0] ??
+      null
+    );
+  }, [models, modelId]);
+
   const isSending = status === "submitted" || status === "streaming";
   const isThinking = status === "submitted";
   const isLocalCacheReady = localCacheReadyId === id;
+
+  const thinkingMessage = useMemo<UIMessage | null>(() => {
+    if (!isThinking) return null;
+    return {
+      id: "__thinking__",
+      role: "assistant",
+      parts: [],
+    };
+  }, [isThinking]);
+
+  const displayMessages = useMemo(() => {
+    if (thinkingMessage) {
+      return [
+        ...messages.filter(
+          (m) =>
+            !(
+              m.role === "assistant" &&
+              !m.parts.some(
+                (p) => p.type === "text" && (p as { text: string }).text.trim(),
+              )
+            ),
+        ),
+        thinkingMessage,
+      ];
+    }
+    return messages;
+  }, [messages, thinkingMessage]);
 
   useEffect(() => {
     if (status === "streaming" && messages.length > 0) {
@@ -731,43 +1108,167 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     return "Ask something about your project...";
   }, [isSending]);
 
+  const addImageFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      if (!selectedModel?.imageSupport) {
+        setNotice(
+          `${selectedModel?.name ?? "The selected model"} does not support image input. Please switch to Flash Multi or another model.`,
+        );
+        return;
+      }
+
+      const errors: string[] = [];
+      const accepted: ImageAttachment[] = [];
+      let room = MAX_IMAGES_PER_MESSAGE - imageAttachments.length;
+
+      for (const file of files) {
+        if (!ALLOWED_IMAGE_MEDIA_TYPES.includes(file.type)) {
+          errors.push(`${file.name || "Image"}: unsupported image type`);
+          continue;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          errors.push(`${file.name || "Image"}: larger than 4 MB`);
+          continue;
+        }
+        if (room <= 0) {
+          errors.push(`Only ${MAX_IMAGES_PER_MESSAGE} images per message`);
+          break;
+        }
+
+        try {
+          const url = await readFileAsDataUrl(file);
+          accepted.push({
+            id: createLocalId(),
+            name: file.name || "pasted-image.png",
+            mediaType: file.type,
+            url,
+            size: file.size,
+          });
+          room -= 1;
+        } catch (error) {
+          console.error("[ChatUi] Failed to read attached image:", error);
+          errors.push(`${file.name || "Image"}: could not be read`);
+        }
+      }
+
+      if (accepted.length > 0) {
+        setImageAttachments((prev) => [...prev, ...accepted]);
+      }
+
+      setNotice(errors.length > 0 ? errors.join(" · ") : null);
+    },
+    [imageAttachments.length, selectedModel],
+  );
+
+  const addTextFiles = useCallback(async (files: File[]) => {
+    const nextAttachments: MessageAttachment[] = [];
+
+    for (const file of files) {
+      try {
+        const content = await file.text();
+        nextAttachments.push({
+          id: createLocalId(),
+          name: file.name,
+          content,
+        });
+      } catch (error) {
+        console.error(
+          "[ChatUi] Failed to read attached file:",
+          file.name,
+          error,
+        );
+      }
+    }
+
+    if (nextAttachments.length > 0) {
+      setAttachments((prev) => [...prev, ...nextAttachments]);
+    }
+  }, []);
+
+  const addFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+      const otherFiles = files.filter(
+        (file) => !file.type.startsWith("image/"),
+      );
+
+      if (imageFiles.length > 0) {
+        await addImageFiles(imageFiles);
+      }
+
+      if (otherFiles.length > 0) {
+        await addTextFiles(otherFiles);
+      }
+    },
+    [addImageFiles, addTextFiles],
+  );
+
   const handleFileSelect = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files ?? []);
+      event.target.value = "";
+      await addFiles(files);
+    },
+    [addFiles],
+  );
+
+  const handlePaste = useCallback(
+    (event: ClipboardEvent<HTMLTextAreaElement>) => {
+      const files = Array.from(event.clipboardData?.items ?? [])
+        .filter((item) => item.kind === "file")
+        .flatMap((item) => {
+          const file = item.getAsFile();
+          return file ? [file] : [];
+        });
 
       if (files.length === 0) {
         return;
       }
 
-      const nextAttachments: MessageAttachment[] = [];
-
-      for (const file of files) {
-        try {
-          const content = await file.text();
-          nextAttachments.push({
-            id:
-              typeof crypto !== "undefined" && "randomUUID" in crypto
-                ? crypto.randomUUID()
-                : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            content,
-          });
-        } catch (error) {
-          console.error(
-            "[ChatUi] Failed to read attached file:",
-            file.name,
-            error,
-          );
-        }
-      }
-
-      if (nextAttachments.length > 0) {
-        setAttachments((prev) => [...prev, ...nextAttachments]);
-      }
-
-      event.target.value = "";
+      event.preventDefault();
+      void addFiles(files);
     },
-    [],
+    [addFiles],
+  );
+
+  const handleDragEnter = useCallback((event: DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer?.types?.includes("Files")) {
+      return;
+    }
+    dragDepthRef.current += 1;
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragOver = useCallback((event: DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer?.types?.includes("Files")) {
+      return;
+    }
+    event.preventDefault();
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLElement>) => {
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDragOver(false);
+      void addFiles(Array.from(event.dataTransfer?.files ?? []));
+    },
+    [addFiles],
   );
 
   const removeAttachment = useCallback((attachmentId: string) => {
@@ -775,6 +1276,38 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
       prev.filter((attachment) => attachment.id !== attachmentId),
     );
   }, []);
+
+  const removeImageAttachment = useCallback((attachmentId: string) => {
+    setImageAttachments((prev) =>
+      prev.filter((attachment) => attachment.id !== attachmentId),
+    );
+  }, []);
+
+  const handleModelSelect = useCallback(
+    (nextModelId: string) => {
+      setModelId(nextModelId);
+      void setLocalChatModel(id, nextModelId);
+
+      const nextModel = models.find((model) => model.id === nextModelId);
+
+      if (nextModel && !nextModel.imageSupport && imageAttachments.length > 0) {
+        setImageAttachments([]);
+        setNotice(
+          `${nextModel.name} does not support image input, so attached images were removed.`,
+        );
+      }
+    },
+    [id, imageAttachments.length, models],
+  );
+
+  const handleSetDefaultModel = useCallback(
+    (nextModelId: string) => {
+      saveDefaultModelId(nextModelId);
+      setDefaultModelId(nextModelId);
+      handleModelSelect(nextModelId);
+    },
+    [handleModelSelect],
+  );
 
   const startEditTitle = useCallback(() => {
     setTitleDraft(chatTitle);
@@ -796,8 +1329,9 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   const handleSend = useCallback(() => {
     const value = input.trim();
     const hasAttachments = attachments.length > 0;
+    const hasImages = imageAttachments.length > 0;
 
-    if (!value && !hasAttachments) {
+    if (!value && !hasAttachments && !hasImages) {
       return;
     }
 
@@ -809,9 +1343,16 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     const attachmentPayload: MessageAttachment[] = attachments.map(
       ({ id, name, content }) => ({ id, name, content }),
     );
+    const fileParts: FileUIPart[] = imageAttachments.map((image) => ({
+      type: "file",
+      mediaType: image.mediaType,
+      filename: image.name,
+      url: image.url,
+    }));
 
     sendMessage({
       text: payload,
+      files: fileParts,
       metadata: {
         attachments: attachmentPayload,
       },
@@ -819,12 +1360,14 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
 
     setInput("");
     setAttachments([]);
+    setImageAttachments([]);
+    setNotice(null);
 
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
     }
-  }, [input, attachments, isSending, sendMessage]);
+  }, [input, attachments, imageAttachments, isSending, sendMessage]);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -834,33 +1377,6 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
   }, [input]);
-
-  const thinkingMessage = useMemo<UIMessage | null>(() => {
-    if (!isThinking) return null;
-    return {
-      id: "__thinking__",
-      role: "assistant",
-      parts: [],
-    };
-  }, [isThinking]);
-
-  const displayMessages = useMemo(() => {
-    if (thinkingMessage) {
-      return [
-        ...messages.filter(
-          (m) =>
-            !(
-              m.role === "assistant" &&
-              !m.parts.some(
-                (p) => p.type === "text" && (p as { text: string }).text.trim(),
-              )
-            ),
-        ),
-        thinkingMessage,
-      ];
-    }
-    return messages;
-  }, [messages, thinkingMessage]);
 
   const virtuosoComponents = useMemo<Components<UIMessage>>(
     () => ({
@@ -883,7 +1399,8 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
       const isEmptyAssistant =
         message.role === "assistant" &&
         !message.parts.some(
-          (part) => part.type === "text" && (part as { text: string }).text.trim(),
+          (part) =>
+            part.type === "text" && (part as { text: string }).text.trim(),
         );
 
       return (
@@ -904,7 +1421,27 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
   );
 
   return (
-    <main className={`${uiFont.variable} flex h-full min-h-0 flex-col bg-[var(--surface)] [font-family:var(--font-chat-ui)]`}>
+    <main
+      className={`${uiFont.variable} relative flex h-full min-h-0 flex-col bg-[var(--surface)] [font-family:var(--font-chat-ui)]`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragOver ? (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[var(--brand)]/5 backdrop-blur-[1px]">
+          <div className="flex flex-col items-center gap-2 rounded-3xl border-2 border-dashed border-[var(--brand)]/50 bg-white/90 px-8 py-6 text-center shadow-xl">
+            <ImageIcon className="h-6 w-6 text-[var(--brand)]" />
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              Drop images to attach
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              PNG, JPEG, WEBP or GIF up to 4 MB
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <header className="flex items-center justify-between gap-3 border-b border-[var(--border)]/40 bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-2xl px-3 py-2.5 sm:px-6 sm:py-3">
         <div className="min-w-0 flex-1">
           {isEditingTitle ? (
@@ -952,14 +1489,20 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className={`hidden sm:flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors duration-300 ${
-            isLocalCacheReady
-              ? "bg-emerald-50/80 text-emerald-600 ring-1 ring-emerald-200/60"
-              : "bg-amber-50/80 text-amber-600 ring-1 ring-amber-200/60"
-          }`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${
-              isLocalCacheReady ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
-            }`} />
+          <div
+            className={`hidden sm:flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors duration-300 ${
+              isLocalCacheReady
+                ? "bg-emerald-50/80 text-emerald-600 ring-1 ring-emerald-200/60"
+                : "bg-amber-50/80 text-amber-600 ring-1 ring-amber-200/60"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isLocalCacheReady
+                  ? "bg-emerald-500"
+                  : "bg-amber-500 animate-pulse"
+              }`}
+            />
             {isLocalCacheReady ? "Synced" : "Syncing"}
           </div>
 
@@ -987,14 +1530,14 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             ref={virtuosoRef}
             className="chat-scroll h-full overscroll-contain"
             data={displayMessages}
-          initialTopMostItemIndex={Math.max(0, displayMessages.length - 1)}
-          defaultItemHeight={72}
-          increaseViewportBy={240}
-          minOverscanItemCount={6}
-          followOutput="smooth"
-          computeItemKey={computeItemKey}
-          components={virtuosoComponents}
-          itemContent={renderItemContent}
+            initialTopMostItemIndex={Math.max(0, displayMessages.length - 1)}
+            defaultItemHeight={72}
+            increaseViewportBy={240}
+            minOverscanItemCount={6}
+            followOutput="smooth"
+            computeItemKey={computeItemKey}
+            components={virtuosoComponents}
+            itemContent={renderItemContent}
           />
         </div>
       </div>
@@ -1014,6 +1557,49 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
           className="hidden"
           aria-hidden="true"
         />
+
+        {notice ? (
+          <div className="mx-auto mb-3 flex w-full max-w-4xl items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/90 px-3.5 py-2.5 text-xs text-amber-700 backdrop-blur-sm">
+            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[10px] font-bold text-amber-600">
+              !
+            </span>
+            <span className="flex-1 leading-relaxed">{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss notice"
+              className="shrink-0 rounded-full p-1 text-amber-500 transition-colors hover:bg-amber-100 hover:text-amber-700"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+          </div>
+        ) : null}
+
+        {imageAttachments.length > 0 ? (
+          <div className="mx-auto mb-3 flex w-full max-w-4xl flex-wrap gap-2">
+            {imageAttachments.map((image) => (
+              <div
+                key={image.id}
+                className="group relative h-20 w-20 overflow-hidden rounded-2xl border border-[var(--border)]/50 bg-white shadow-sm"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- data-URL attachment preview */}
+                <img
+                  src={image.url}
+                  alt={image.name}
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImageAttachment(image.id)}
+                  aria-label={`Remove ${image.name}`}
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 focus:opacity-100"
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {attachments.length > 0 ? (
           <div className="mx-auto mb-3 flex w-full max-w-4xl flex-wrap gap-2">
@@ -1039,50 +1625,69 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
           </div>
         ) : null}
 
-        <div className="mx-auto flex w-full max-w-4xl items-end gap-2 rounded-3xl border border-[var(--border)]/50 bg-white/95 backdrop-blur-sm p-2 shadow-lg shadow-black/[0.03] transition-all duration-300 focus-within:border-[var(--brand)]/40 focus-within:shadow-xl focus-within:shadow-[var(--brand)]/[0.06] focus-within:ring-1 focus-within:ring-[var(--brand)]/10">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            aria-label="Attach file"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
-          >
-            <PaperclipIcon className="h-[18px] w-[18px]" />
-          </button>
+        <div className="mx-auto w-full max-w-4xl rounded-3xl border border-[var(--border)]/50 bg-white/95 backdrop-blur-sm p-2 shadow-lg shadow-black/[0.03] transition-all duration-300 focus-within:border-[var(--brand)]/40 focus-within:shadow-xl focus-within:shadow-[var(--brand)]/[0.06] focus-within:ring-1 focus-within:ring-[var(--brand)]/10">
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              aria-label="Attach file"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] transition-all duration-200 hover:bg-[var(--surface-muted)] hover:text-[var(--brand)] active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10"
+            >
+              <PaperclipIcon className="h-[18px] w-[18px]" />
+            </button>
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(event) => setInput(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                handleSend();
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(event) => setInput(event.currentTarget.value)}
+              onPaste={handlePaste}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={placeholder}
+              enterKeyHint="send"
+              rows={1}
+              className="chat-textarea max-h-32 min-h-[44px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50 sm:text-[15px]"
+            />
+
+            <button
+              type={isSending ? "button" : "submit"}
+              onClick={isSending ? () => stop() : undefined}
+              disabled={
+                !isSending &&
+                !input.trim() &&
+                attachments.length === 0 &&
+                imageAttachments.length === 0
               }
-            }}
-            placeholder={placeholder}
-            enterKeyHint="send"
-            rows={1}
-            className="chat-textarea max-h-32 min-h-[44px] w-full flex-1 resize-none bg-transparent px-1 py-2.5 text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50 sm:text-[15px]"
-          />
+              aria-label={isSending ? "Stop generating" : "Send message"}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10 ${
+                isSending
+                  ? "bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-red-50 hover:text-red-500 shadow-sm"
+                  : "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-md shadow-[var(--brand)]/20 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105"
+              }`}
+            >
+              {isSending ? (
+                <StopIcon className="h-4 w-4" />
+              ) : (
+                <ArrowUpIcon className="h-[18px] w-[18px]" />
+              )}
+            </button>
+          </div>
 
-          <button
-            type={isSending ? "button" : "submit"}
-            onClick={isSending ? () => stop() : undefined}
-            disabled={!isSending && !input.trim() && attachments.length === 0}
-            aria-label={isSending ? "Stop generating" : "Send message"}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all duration-200 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-10 ${
-              isSending
-                ? "bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:bg-red-50 hover:text-red-500 shadow-sm"
-                : "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-strong)] text-white shadow-md shadow-[var(--brand)]/20 hover:shadow-lg hover:shadow-[var(--brand)]/25 hover:scale-105"
-            }`}
-          >
-            {isSending ? (
-              <StopIcon className="h-4 w-4" />
-            ) : (
-              <ArrowUpIcon className="h-[18px] w-[18px]" />
-            )}
-          </button>
+          <div className="mt-0.5 flex items-center gap-2 border-t border-[var(--border)]/30 px-1 pt-1.5 pb-0.5">
+            <ModelSelector
+              models={models}
+              selectedId={modelId}
+              defaultId={defaultModelId}
+              onSelect={handleModelSelect}
+              onSetDefault={handleSetDefaultModel}
+              disabled={isSending}
+            />
+          </div>
         </div>
 
         <p className="mx-auto mt-2.5 max-w-4xl text-center text-[11px] text-[var(--text-muted)]/60">
@@ -1098,7 +1703,9 @@ export function ChatUi({ id, initialMessages }: ChatUiProps) {
             <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
             <span className="text-[var(--text-muted)]/50">Enter to send</span>
             <span className="mx-1.5 text-[var(--text-muted)]/30">·</span>
-            <span className="text-[var(--text-muted)]/50">AI can make mistakes</span>
+            <span className="text-[var(--text-muted)]/50">
+              AI can make mistakes
+            </span>
           </span>
         </p>
       </form>
