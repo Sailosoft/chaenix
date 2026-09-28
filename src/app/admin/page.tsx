@@ -42,7 +42,7 @@ export default async function AdminDashboardPage() {
             </p>
           </div>
           <h1 className="mt-3 text-[2.5rem] leading-tight font-semibold tracking-tight text-white [font-family:var(--font-heading)]">
-            Welcome back, {session.user?.name ?? "Admin"}
+            Welcome back and I Love You ❤️, {session.user?.name ?? "Admin"}
           </h1>
           <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-white/60 [font-family:var(--font-body)]">
             Manage your conversations and access administrative tools from your control center.
