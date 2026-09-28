@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent Manager state, plans, and nested worktrees.
+    ".kilo/**",
   ]),
 ]);
 

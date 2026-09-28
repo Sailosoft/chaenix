@@ -12,31 +12,55 @@ import {
 } from "ai";
 
 import { authOptions } from "@/lib/auth";
+import { resolveModelSelection } from "@/lib/ai/provider";
 
 type ChatRequestBody = {
   id?: string;
   chatId?: string;
   messages?: UIMessage[];
+  model?: string;
 };
 
 export const runtime = "nodejs";
 
-function toTextOnlyModelInput(messages: UIMessage[]): UIMessage[] {
-  return messages
-    .map((message) => {
-      const text = message.parts
-        .flatMap((part) => (part.type === "text" ? [part.text] : []))
-        .join("\n")
-        .trim();
+const ALLOWED_IMAGE_MEDIA_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 
-      if (!text) return null;
+function toModelInput(
+  messages: UIMessage[],
+  imageSupport: boolean,
+): UIMessage[] {
+  return messages.flatMap((message) => {
+    const text = message.parts
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .join("\n")
+      .trim();
 
-      return {
-        ...message,
-        parts: [{ type: "text", text }],
-      } as UIMessage;
-    })
-    .filter((message): message is UIMessage => message !== null);
+    const imageParts = imageSupport
+      ? message.parts.filter(
+          (part) =>
+            part.type === "file" && ALLOWED_IMAGE_MEDIA_TYPES.has(part.mediaType),
+        )
+      : [];
+
+    if (!text && imageParts.length === 0) {
+      return [];
+    }
+
+    const parts: UIMessage["parts"] = [];
+
+    if (text) {
+      parts.push({ type: "text", text });
+    }
+
+    parts.push(...imageParts);
+
+    return [{ ...message, parts } as UIMessage];
+  });
 }
 
 export async function POST(req: Request) {
@@ -45,28 +69,6 @@ export async function POST(req: Request) {
   if (!session) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  // 1. Resolve configuration dynamically inside request execution context
-  const baseURL =
-    process.env.AI_BASE_URL ??
-    process.env.OLLAMA_BASE_URL ??
-    "http://127.0.0.1:11434/v1";
-
-  const apiKey =
-    (process.env.AI_API_KEY && process.env.AI_API_KEY.trim() !== "")
-      ? process.env.AI_API_KEY
-      : (process.env.OLLAMA_API_KEY ?? "ollama");
-
-  const modelId =
-    process.env.AI_MODEL ??
-    process.env.OLLAMA_MODEL ??
-    "gemma4:31b-cloud";
-
-  // 2. Instantiate provider per request
-  const openaiCompatibleProvider = createOpenAI({
-    baseURL,
-    apiKey,
-  });
 
   const body = (await req.json()) as ChatRequestBody;
   const id = body.id ?? body.chatId;
@@ -81,6 +83,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing chat message" }, { status: 400 });
   }
 
+  const resolvedModel = resolveModelSelection(body.model ?? "");
+
+  if (!resolvedModel) {
+    return Response.json({ error: "Unknown model" }, { status: 400 });
+  }
+
   let validatedMessages: UIMessage[];
 
   try {
@@ -93,7 +101,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const modelInputMessages = toTextOnlyModelInput(validatedMessages);
+  const modelInputMessages = toModelInput(
+    validatedMessages,
+    resolvedModel.imageSupport,
+  );
 
   if (modelInputMessages.length === 0) {
     return Response.json(
@@ -102,8 +113,13 @@ export async function POST(req: Request) {
     );
   }
 
+  const openaiCompatibleProvider = createOpenAI({
+    baseURL: resolvedModel.baseURL,
+    apiKey: resolvedModel.apiKey,
+  });
+
   const result = streamText({
-    model: openaiCompatibleProvider.chat(modelId),
+    model: openaiCompatibleProvider.chat(resolvedModel.providerModel),
     messages: await convertToModelMessages(modelInputMessages),
   });
 

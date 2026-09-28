@@ -44,9 +44,17 @@ ADMIN_PASSWORD=change-me
 
 # OpenAI-compatible chat provider configuration
 # Defaults target local Ollama when these are not set.
+# AI_BASE_URL / AI_API_KEY / AI_MODEL power the "Native" model entry.
 AI_BASE_URL=http://127.0.0.1:11434/v1
 AI_API_KEY=ollama
 AI_MODEL=gemma4:31b-cloud
+# Set to false when the Native model is text-only (default: true).
+AI_MODEL_IMAGE_SUPPORT=true
+
+# DeepInfra catalog models (Flash, Flash Multi, Flash Pro, Pro, Max, Ultra).
+# The base URL is a hard-coded constant (https://api.deepinfra.com/v1/openai).
+# Falls back to AI_API_KEY when unset.
+DEEPINFRA_API_KEY=...
 
 # Supabase Storage file manager (/admin/drive) — server-side secret key
 SUPABASE_URL=https://<project-ref>.supabase.co

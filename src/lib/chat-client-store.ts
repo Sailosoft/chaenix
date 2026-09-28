@@ -7,6 +7,7 @@ type ChatRecord = {
   id: string;
   title: string;
   titleIsCustom?: boolean;
+  modelId?: string;
   createdAt: number;
   updatedAt: number;
   messageCount: number;
@@ -32,6 +33,11 @@ class ChatClientDatabase extends Dexie {
 
     this.version(1).stores({
       chats: "id, updatedAt, createdAt",
+      conversations: "++id, chatId, messageId, createdAt, [chatId+createdAt]",
+    });
+
+    this.version(2).stores({
+      chats: "id, updatedAt, createdAt, modelId",
       conversations: "++id, chatId, messageId, createdAt, [chatId+createdAt]",
     });
   }
@@ -108,6 +114,7 @@ export async function saveLocalChatSnapshot({
       id: chatId,
       title: previous?.titleIsCustom ? previous.title : getChatTitle(messages),
       titleIsCustom: previous?.titleIsCustom ?? false,
+      modelId: previous?.modelId,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       messageCount: messages.length,
@@ -129,6 +136,35 @@ export async function getLocalChat(chatId: string): Promise<ChatRecord | undefin
 export async function renameLocalChat(chatId: string, title: string): Promise<void> {
   const db = getDb();
   await db.chats.update(chatId, { title, titleIsCustom: true });
+}
+
+export async function setLocalChatModel(
+  chatId: string,
+  modelId: string,
+): Promise<void> {
+  const db = getDb();
+
+  await db.transaction("rw", db.chats, async () => {
+    const existing = await db.chats.get(chatId);
+
+    if (existing) {
+      await db.chats.update(chatId, { modelId });
+      return;
+    }
+
+    const now = Date.now();
+
+    await db.chats.put({
+      id: chatId,
+      title: "Untitled Chat",
+      titleIsCustom: false,
+      modelId,
+      createdAt: now,
+      updatedAt: now,
+      messageCount: 0,
+      lastMessagePreview: "",
+    });
+  });
 }
 
 export async function deleteLocalChatSnapshot(chatId: string): Promise<void> {

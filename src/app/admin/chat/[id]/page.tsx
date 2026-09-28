@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/lib/auth";
+import { buildClientModelList } from "@/lib/ai/provider";
 
 import { ChatUi } from "../chat-ui";
 
@@ -17,5 +18,7 @@ export default async function AdminChatPage({
   }
 
   const { id } = await params;
-  return <ChatUi id={id} initialMessages={[]} />;
+  const models = buildClientModelList();
+
+  return <ChatUi id={id} initialMessages={[]} models={models} />;
 }
